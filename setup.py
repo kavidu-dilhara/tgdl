@@ -8,7 +8,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="tgdl",
-    version="1.0.0",
+    version="1.0.1",
     author="kavidu-dilhara",
     author_email="contact@kavidudilhara.eu.org",
     description="A high-performance CLI tool for downloading media from Telegram channels, groups, and messages",
