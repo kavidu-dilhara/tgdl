@@ -142,3 +142,6 @@ downloads/
 channel_*_media/
 group_*_media/
 single_downloads/
+
+# Documentation (optional)
+HOW_TO_RELEASE.md
