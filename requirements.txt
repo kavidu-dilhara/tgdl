@@ -1,0 +1,5 @@
+telethon>=1.42.0
+click>=8.3.0
+tqdm>=4.67.1
+aiofiles>=25.1.0
+
