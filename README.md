@@ -148,6 +148,24 @@ Check authentication status and configuration.
 tgdl status
 ```
 
+Shows:
+- Authentication status
+- User information (name, ID, username)
+- Config file locations
+- API credentials (masked)
+
+#### `tgdl logout`
+Logout from Telegram and remove session.
+
+```bash
+tgdl logout
+```
+
+This will:
+- Remove your local session file
+- Delete stored API credentials
+- Optionally clear download progress
+
 #### `tgdl --version`
 Show version information.
 
