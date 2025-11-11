@@ -295,22 +295,24 @@ class Downloader:
 
             # Get file info
             file_name = "unknown"
-            file_size_mb = 0
+            file_size = 0
             if message.file:
                 file_name = message.file.name or f"file_{message_id}"
-                file_size_mb = message.file.size / (1024 * 1024)
+                file_size = message.file.size
 
-            click.echo(f"File: {file_name}")
-            click.echo(f"Size: {file_size_mb:.2f} MB")
-            click.echo("Downloading...")
+            click.echo(f"\nFile: {file_name}")
+            click.echo(f"Size: {self._format_bytes(file_size)}")
+            click.echo()
 
-            # Progress callback
+            # Progress callback with better formatting
             async def progress_callback(current, total):
                 percent = (current / total) * 100 if total > 0 else 0
-                downloaded_mb = current / (1024 * 1024)
-                total_mb = total / (1024 * 1024)
+                bar_length = 30
+                filled = int(bar_length * current / total) if total > 0 else 0
+                bar = "█" * filled + "░" * (bar_length - filled)
+                
                 print(
-                    f"\rProgress: {percent:.1f}% ({downloaded_mb:.1f}/{total_mb:.1f} MB)",
+                    f"\r  [{bar}] {percent:.1f}% | {self._format_bytes(current)}/{self._format_bytes(total)}",
                     end="",
                     flush=True,
                 )
@@ -322,17 +324,25 @@ class Downloader:
             print()  # New line after progress
 
             if file_path:
-                click.echo(click.style(f"✓ Successfully downloaded to: {file_path}", fg="green"))
+                click.echo(click.style(f"\n✓ Successfully downloaded to: {file_path}", fg="green"))
                 await client.disconnect()
                 return True
             else:
-                click.echo(click.style("✗ Failed to download", fg="red"))
+                click.echo(click.style("\n✗ Failed to download", fg="red"))
                 await client.disconnect()
                 return False
 
         except Exception as e:
-            click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
+            click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
             return False
+
+    def _format_bytes(self, bytes_size: int) -> str:
+        """Format bytes to human-readable size."""
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if bytes_size < 1024.0:
+                return f"{bytes_size:.2f} {unit}"
+            bytes_size /= 1024.0
+        return f"{bytes_size:.2f} PB"
 
     def _parse_link(self, link: str):
         """Parse Telegram message link."""
