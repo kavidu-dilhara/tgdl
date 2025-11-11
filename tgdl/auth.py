@@ -29,32 +29,42 @@ async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
         # Check if already authorized
         if await client.is_user_authorized():
             me = await client.get_me()
-            click.echo(click.style(f"✓ Already logged in as {me.first_name} (ID: {me.id})", fg='green'))
+            click.echo(click.style(f"\n✓ Already logged in as {me.first_name} (ID: {me.id})", fg='green'))
             await client.disconnect()
             return True
         
         # Send code request
-        click.echo(f"Sending code to {phone}...")
+        click.echo(f"\nSending verification code to {phone}...")
         await client.send_code_request(phone)
         
         # Get code from user
-        code = click.prompt("Enter the code you received", type=str)
+        try:
+            code = click.prompt("\nEnter the verification code you received", type=str)
+        except (click.Abort, KeyboardInterrupt):
+            click.echo(click.style("\n\n⚠ Login cancelled.", fg='yellow'))
+            await client.disconnect()
+            return False
         
         try:
             await client.sign_in(phone, code)
         except SessionPasswordNeededError:
             # Two-factor authentication enabled
-            password = click.prompt("Two-factor authentication enabled. Enter your password", 
-                                   type=str, hide_input=True)
+            try:
+                password = click.prompt("\nTwo-factor authentication enabled. Enter your password", 
+                                       type=str, hide_input=True)
+            except (click.Abort, KeyboardInterrupt):
+                click.echo(click.style("\n\n⚠ Login cancelled.", fg='yellow'))
+                await client.disconnect()
+                return False
             await client.sign_in(password=password)
         except PhoneCodeInvalidError:
-            click.echo(click.style("✗ Invalid code. Please try again.", fg='red'))
+            click.echo(click.style("\n✗ Invalid code. Please try again.", fg='red'))
             await client.disconnect()
             return False
         
         # Confirm successful login
         me = await client.get_me()
-        click.echo(click.style(f"✓ Successfully logged in as {me.first_name} (ID: {me.id})", fg='green'))
+        click.echo(click.style(f"\n✓ Successfully logged in as {me.first_name} (ID: {me.id})", fg='green'))
         
         # Save credentials
         config.set_api_credentials(api_id, api_hash)
@@ -63,10 +73,13 @@ async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
         return True
         
     except ApiIdInvalidError:
-        click.echo(click.style("✗ Invalid API ID or API Hash", fg='red'))
+        click.echo(click.style("\n✗ Invalid API ID or API Hash", fg='red'))
+        return False
+    except (click.Abort, KeyboardInterrupt):
+        click.echo(click.style("\n\n⚠ Login cancelled.", fg='yellow'))
         return False
     except Exception as e:
-        click.echo(click.style(f"✗ Login failed: {e}", fg='red'))
+        click.echo(click.style(f"\n✗ Login failed: {e}", fg='red'))
         return False
 
 
