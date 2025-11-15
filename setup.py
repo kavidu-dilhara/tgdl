@@ -44,6 +44,7 @@ setup(
         "click>=8.3.0",
         "tqdm>=4.67.1",
         "aiofiles>=25.1.0",
+        "cryptography>=43.0.0",
     ],
     extras_require={
         "dev": [
