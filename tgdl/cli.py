@@ -4,7 +4,7 @@ import asyncio
 import click
 from tgdl import __version__
 from tgdl.auth import login_user, check_auth
-from tgdl.list import get_channels, get_groups, display_channels, display_groups
+from tgdl.list import get_channels, get_groups, get_bots, display_channels, display_groups, display_bots
 from tgdl.downloader import Downloader, MediaType
 from tgdl.config import get_config
 
@@ -29,22 +29,25 @@ def main():
     """
     tgdl - High-performance Telegram media downloader CLI tool.
     
-    Download media from Telegram channels, groups, and message links with filters.
+    Download media from Telegram channels, groups, bot chats, and message links with filters.
     
     \b
     Quick Start:
       1. Login:         tgdl login
       2. List channels: tgdl channels
       3. List groups:   tgdl groups
-      4. Download:      tgdl download -c CHANNEL_ID
+      4. List bots:     tgdl bots
+      5. Download:      tgdl download -c CHANNEL_ID / -g GROUP_ID / -b BOT_ID
     
     \b
     Examples:
       tgdl login
       tgdl channels
       tgdl groups
+      tgdl bots
       tgdl download -c 1234567890 -p -v
       tgdl download -g 1234567890 --max-size 100MB
+      tgdl download -b 1234567890 -d
       tgdl download-link https://t.me/c/1234567890/123
     """
     pass
@@ -223,8 +226,32 @@ def groups():
 
 
 @main.command()
+def bots():
+    """List all bot chats you have."""
+    # Check if logged in first
+    if not run_async(check_auth()):
+        click.echo(click.style("\n✗ You're not logged in.", fg='red'))
+        click.echo("Run 'tgdl login' first to authenticate.\n")
+        return
+    
+    click.echo(click.style("🤖 Fetching your bot chats...\n", fg='cyan'))
+    
+    try:
+        bots_list = run_async(get_bots())
+        display_bots(bots_list)
+        
+        if bots_list:
+            click.echo(click.style(f"\n💡 Tip: Use 'tgdl download -b <ID>' to download from a bot chat", fg='yellow'))
+    except KeyboardInterrupt:
+        click.echo(click.style("\n\n⚠ Cancelled by user.", fg='yellow'))
+    except Exception as e:
+        click.echo(click.style(f"\n✗ Error: {e}", fg='red'))
+
+
+@main.command()
 @click.option('-c', '--channel', type=int, help='Channel ID to download from')
 @click.option('-g', '--group', type=int, help='Group ID to download from')
+@click.option('-b', '--bot', type=int, help='Bot chat ID to download from')
 @click.option('-p', '--photos', is_flag=True, help='Download only photos')
 @click.option('-v', '--videos', is_flag=True, help='Download only videos')
 @click.option('-a', '--audio', is_flag=True, help='Download only audio files')
@@ -234,17 +261,20 @@ def groups():
 @click.option('--limit', type=int, help='Maximum number of files to download')
 @click.option('--concurrent', type=int, default=5, help='Number of parallel downloads (default: 5)')
 @click.option('-o', '--output', type=str, default='downloads', help='Output directory (default: downloads)')
-def download(channel, group, photos, videos, audio, documents, max_size, min_size, limit, concurrent, output):
+def download(channel, group, bot, photos, videos, audio, documents, max_size, min_size, limit, concurrent, output):
     """
-    Download media from a channel or group with filters.
+    Download media from a channel, group, or bot chat with filters.
     
     \b
     Examples:
       # Download all media from a channel
       tgdl download -c 1234567890
       
-      # Download only photos and videos
-      tgdl download -c 1234567890 -p -v
+      # Download only photos and videos from a group
+      tgdl download -g 1234567890 -p -v
+      
+      # Download documents from a bot chat
+      tgdl download -b 1234567890 -d
       
       # Download with file size limit
       tgdl download -g 1234567890 --max-size 100MB
@@ -256,17 +286,17 @@ def download(channel, group, photos, videos, audio, documents, max_size, min_siz
       tgdl download -c 1234567890 --concurrent 10
     """
     # Validate input
-    if not channel and not group:
-        click.echo(click.style("✗ Please specify either --channel or --group", fg='red'))
-        click.echo("Use 'tgdl channels' or 'tgdl groups' to list available IDs")
+    if not channel and not group and not bot:
+        click.echo(click.style("✗ Please specify either --channel, --group, or --bot", fg='red'))
+        click.echo("Use 'tgdl channels', 'tgdl groups', or 'tgdl bots' to list available IDs")
         return
     
-    if channel and group:
-        click.echo(click.style("✗ Please specify only one: --channel OR --group", fg='red'))
+    if sum([bool(channel), bool(group), bool(bot)]) > 1:
+        click.echo(click.style("✗ Please specify only one: --channel, --group, OR --bot", fg='red'))
         return
     
-    entity_id = channel or group
-    entity_type = "channel" if channel else "group"
+    entity_id = channel or group or bot
+    entity_type = "channel" if channel else ("group" if group else "bot")
     
     # Determine media types
     media_types = []
