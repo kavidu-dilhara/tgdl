@@ -3,6 +3,7 @@
 import asyncio
 from typing import List, Dict
 import click
+from telethon.tl.types import User
 from tgdl.auth import get_authenticated_client
 
 
@@ -72,6 +73,40 @@ async def get_groups() -> List[Dict[str, any]]:
     return groups
 
 
+async def get_bots() -> List[Dict[str, any]]:
+    """
+    Get list of all bot chats user has.
+    
+    Returns:
+        List of dicts with bot info
+    """
+    client = get_authenticated_client()
+    if not client:
+        return []
+    
+    bots = []
+    try:
+        await client.connect()
+        
+        dialogs = await client.get_dialogs()
+        
+        for dialog in dialogs:
+            # Check if it's a user and a bot
+            if dialog.is_user and isinstance(dialog.entity, User) and dialog.entity.bot:
+                bots.append({
+                    'id': dialog.entity.id,
+                    'title': dialog.name,
+                    'username': getattr(dialog.entity, 'username', None),
+                })
+        
+        await client.disconnect()
+        
+    except Exception as e:
+        click.echo(click.style(f"✗ Error fetching bots: {e}", fg='red'))
+    
+    return bots
+
+
 def display_channels(channels: List[Dict[str, any]]):
     """Display channels in a formatted table."""
     if not channels:
@@ -100,3 +135,18 @@ def display_groups(groups: List[Dict[str, any]]):
     for group in groups:
         username = f"@{group['username']}" if group['username'] else "N/A"
         click.echo(f"{group['id']:<15} {group['title']:<40} {username:<20}")
+
+
+def display_bots(bots: List[Dict[str, any]]):
+    """Display bot chats in a formatted table."""
+    if not bots:
+        click.echo("No bot chats found.")
+        return
+    
+    click.echo(click.style(f"\n🤖 Found {len(bots)} bot chats:\n", fg='cyan', bold=True))
+    click.echo(f"{'ID':<15} {'Bot Name':<40} {'Username':<20}")
+    click.echo("=" * 75)
+    
+    for bot in bots:
+        username = f"@{bot['username']}" if bot['username'] else "N/A"
+        click.echo(f"{bot['id']:<15} {bot['title']:<40} {username:<20}")
