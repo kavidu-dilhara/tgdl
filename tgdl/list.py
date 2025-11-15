@@ -1,13 +1,13 @@
 """Module for listing Telegram channels and groups."""
 
 import asyncio
-from typing import List, Dict
+from typing import List, Dict, Any
 import click
 from telethon.tl.types import User
 from tgdl.auth import get_authenticated_client
 
 
-async def get_channels() -> List[Dict[str, any]]:
+async def get_channels() -> List[Dict[str, Any]]:
     """
     Get list of all channels user is member of.
     
@@ -40,7 +40,7 @@ async def get_channels() -> List[Dict[str, any]]:
     return channels
 
 
-async def get_groups() -> List[Dict[str, any]]:
+async def get_groups() -> List[Dict[str, Any]]:
     """
     Get list of all groups user is member of.
     
@@ -73,7 +73,7 @@ async def get_groups() -> List[Dict[str, any]]:
     return groups
 
 
-async def get_bots() -> List[Dict[str, any]]:
+async def get_bots() -> List[Dict[str, Any]]:
     """
     Get list of all bot chats user has.
     
@@ -107,7 +107,7 @@ async def get_bots() -> List[Dict[str, any]]:
     return bots
 
 
-def display_channels(channels: List[Dict[str, any]]):
+def display_channels(channels: List[Dict[str, Any]]) -> None:
     """Display channels in a formatted table."""
     if not channels:
         click.echo("No channels found.")
@@ -122,7 +122,7 @@ def display_channels(channels: List[Dict[str, any]]):
         click.echo(f"{channel['id']:<15} {channel['title']:<40} {username:<20}")
 
 
-def display_groups(groups: List[Dict[str, any]]):
+def display_groups(groups: List[Dict[str, Any]]) -> None:
     """Display groups in a formatted table."""
     if not groups:
         click.echo("No groups found.")
@@ -137,7 +137,7 @@ def display_groups(groups: List[Dict[str, any]]):
         click.echo(f"{group['id']:<15} {group['title']:<40} {username:<20}")
 
 
-def display_bots(bots: List[Dict[str, any]]):
+def display_bots(bots: List[Dict[str, Any]]) -> None:
     """Display bot chats in a formatted table."""
     if not bots:
         click.echo("No bot chats found.")
