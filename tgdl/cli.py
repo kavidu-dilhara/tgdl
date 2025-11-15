@@ -7,6 +7,7 @@ from tgdl.auth import login_user, check_auth
 from tgdl.list import get_channels, get_groups, get_bots, display_channels, display_groups, display_bots
 from tgdl.downloader import Downloader, MediaType
 from tgdl.config import get_config
+from tgdl.utils import format_bytes, require_auth
 
 
 def run_async(coro):
@@ -14,13 +15,7 @@ def run_async(coro):
     return asyncio.run(coro)
 
 
-def _format_size(bytes_size: int) -> str:
-    """Format bytes to human-readable size."""
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if bytes_size < 1024.0:
-            return f"{bytes_size:.2f} {unit}"
-        bytes_size /= 1024.0
-    return f"{bytes_size:.2f} PB"
+# Removed _format_size function - now using utils.format_bytes
 
 
 @click.group()
@@ -180,14 +175,9 @@ def logout():
 
 
 @main.command()
+@require_auth
 def channels():
     """List all channels you're a member of."""
-    # Check if logged in first
-    if not run_async(check_auth()):
-        click.echo(click.style("\n✗ You're not logged in.", fg='red'))
-        click.echo("Run 'tgdl login' first to authenticate.\n")
-        return
-    
     click.echo(click.style("📢 Fetching your channels...\n", fg='cyan'))
     
     try:
@@ -203,14 +193,9 @@ def channels():
 
 
 @main.command()
+@require_auth
 def groups():
     """List all groups you're a member of."""
-    # Check if logged in first
-    if not run_async(check_auth()):
-        click.echo(click.style("\n✗ You're not logged in.", fg='red'))
-        click.echo("Run 'tgdl login' first to authenticate.\n")
-        return
-    
     click.echo(click.style("👥 Fetching your groups...\n", fg='cyan'))
     
     try:
@@ -226,14 +211,9 @@ def groups():
 
 
 @main.command()
+@require_auth
 def bots():
     """List all bot chats you have."""
-    # Check if logged in first
-    if not run_async(check_auth()):
-        click.echo(click.style("\n✗ You're not logged in.", fg='red'))
-        click.echo("Run 'tgdl login' first to authenticate.\n")
-        return
-    
     click.echo(click.style("🤖 Fetching your bot chats...\n", fg='cyan'))
     
     try:
@@ -322,9 +302,9 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
     click.echo(f"  Entity: {entity_type.capitalize()} {entity_id}")
     click.echo(f"  Media types: {', '.join([mt.value for mt in media_types])}")
     if max_size_bytes:
-        click.echo(f"  Max size: {max_size} ({_format_size(max_size_bytes)})")
+        click.echo(f"  Max size: {max_size} ({format_bytes(max_size_bytes)})")
     if min_size_bytes:
-        click.echo(f"  Min size: {min_size} ({_format_size(min_size_bytes)})")
+        click.echo(f"  Min size: {min_size} ({format_bytes(min_size_bytes)})")
     if limit:
         click.echo(f"  Limit: {limit} files")
     click.echo(f"  Parallel downloads: {concurrent}")
