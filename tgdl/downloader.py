@@ -18,6 +18,7 @@ from telethon.tl.types import (
 
 from tgdl.auth import get_authenticated_client
 from tgdl.config import get_config
+from tgdl.utils import format_bytes
 
 
 class MediaType(Enum):
@@ -301,7 +302,7 @@ class Downloader:
                 file_size = message.file.size
 
             click.echo(f"\nFile: {file_name}")
-            click.echo(f"Size: {self._format_bytes(file_size)}")
+            click.echo(f"Size: {format_bytes(file_size)}")
             click.echo()
 
             # Progress callback with better formatting
@@ -312,7 +313,7 @@ class Downloader:
                 bar = "█" * filled + "░" * (bar_length - filled)
                 
                 print(
-                    f"\r  [{bar}] {percent:.1f}% | {self._format_bytes(current)}/{self._format_bytes(total)}",
+                    f"\r  [{bar}] {percent:.1f}% | {format_bytes(current)}/{format_bytes(total)}",
                     end="",
                     flush=True,
                 )
@@ -335,14 +336,6 @@ class Downloader:
         except Exception as e:
             click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
             return False
-
-    def _format_bytes(self, bytes_size: int) -> str:
-        """Format bytes to human-readable size."""
-        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-            if bytes_size < 1024.0:
-                return f"{bytes_size:.2f} {unit}"
-            bytes_size /= 1024.0
-        return f"{bytes_size:.2f} PB"
 
     def _parse_link(self, link: str):
         """Parse Telegram message link."""
