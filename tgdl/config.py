@@ -4,6 +4,7 @@ import os
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
+from tgdl.crypto import CredentialEncryption
 
 
 class Config:
@@ -17,6 +18,9 @@ class Config:
         self.config_file = self.config_dir / "config.json"
         self.session_file = self.config_dir / "tgdl.session"
         self.progress_file = self.config_dir / "progress.json"
+        
+        # Initialize encryption handler
+        self.crypto = CredentialEncryption(self.config_dir)
         
         self._config = self._load_config()
         self._progress = self._load_progress()
@@ -70,22 +74,52 @@ class Config:
         self.save_progress()
 
     def get_api_credentials(self) -> tuple[Optional[int], Optional[str]]:
-        """Get API credentials from config."""
+        """Get API credentials from config (with decryption)."""
+        encrypted_id = self.get('api_id_enc')
+        encrypted_hash = self.get('api_hash_enc')
+        
+        if encrypted_id and encrypted_hash:
+            # Try to decrypt encrypted credentials
+            api_id, api_hash = self.crypto.decrypt_credentials(encrypted_id, encrypted_hash)
+            if api_id and api_hash:
+                return api_id, api_hash
+        
+        # Fallback: check for old plaintext credentials (for migration)
         api_id = self.get('api_id')
         api_hash = self.get('api_hash')
         
-        if api_id is not None:
+        if api_id and api_hash:
+            # Migrate to encrypted storage
             try:
-                api_id = int(api_id)
+                api_id_int = int(api_id)
+                self.set_api_credentials(api_id_int, api_hash)
+                # Remove old plaintext credentials
+                if 'api_id' in self._config:
+                    del self._config['api_id']
+                if 'api_hash' in self._config:
+                    del self._config['api_hash']
+                self._save_config()
+                return api_id_int, api_hash
             except (ValueError, TypeError):
-                api_id = None
+                pass
         
-        return api_id, api_hash
+        return None, None
 
     def set_api_credentials(self, api_id: int, api_hash: str):
-        """Save API credentials to config."""
-        self.set('api_id', api_id)
-        self.set('api_hash', api_hash)
+        """Save API credentials to config (with encryption)."""
+        # Encrypt credentials
+        encrypted_id, encrypted_hash = self.crypto.encrypt_credentials(api_id, api_hash)
+        
+        # Save encrypted credentials
+        self.set('api_id_enc', encrypted_id)
+        self.set('api_hash_enc', encrypted_hash)
+        
+        # Remove old plaintext credentials if they exist
+        if 'api_id' in self._config:
+            del self._config['api_id']
+        if 'api_hash' in self._config:
+            del self._config['api_hash']
+        self._save_config()
 
     def is_authenticated(self) -> bool:
         """Check if user has valid session file."""
