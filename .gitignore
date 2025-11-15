@@ -137,6 +137,10 @@ Thumbs.db
 *.session
 *.session-journal
 
+# Encryption keys and sensitive data
+.key
+*.key
+
 # User data and downloads
 downloads/
 channel_*_media/
