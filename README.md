@@ -17,7 +17,7 @@
   </p>
 </div>
 
-A powerful, high-performance CLI tool for downloading media from Telegram channels, groups, and messages. Built with async/await for **5-10x faster** downloads with smart filters and progress tracking.A powerful, high-performance CLI tool for downloading media from Telegram channels, groups, and messages. Built with async/await for **5-10x faster** downloads with smart filters and progress tracking.
+A powerful, high-performance CLI tool for downloading media from Telegram channels, groups, bot chats, and messages. Built with async/await for **5-10x faster** downloads with smart filters and progress tracking.
 
 
 ## ✨ Features
@@ -63,7 +63,7 @@ tgdl login
 
 Enter your API ID, API Hash, and phone number when prompted.
 
-### 3. List Your Channels/Groups
+### 3. List Your Channels/Groups/Bots
 
 ```bash
 # List all channels
@@ -71,6 +71,9 @@ tgdl channels
 
 # List all groups
 tgdl groups
+
+# List all bot chats
+tgdl bots
 ```
 
 ### 4. Download Media
@@ -81,6 +84,9 @@ tgdl download -c CHANNEL_ID
 
 # Download only photos and videos
 tgdl download -c CHANNEL_ID -p -v
+
+# Download from a bot chat
+tgdl download -b BOT_ID -d
 
 # Download with file size limit
 tgdl download -g GROUP_ID --max-size 100MB
@@ -114,8 +120,15 @@ List all groups you're a member of.
 tgdl groups
 ```
 
+#### `tgdl bots`
+List all bot chats.
+
+```bash
+tgdl bots
+```
+
 #### `tgdl download`
-Download media from a channel or group with filters.
+Download media from a channel, group, or bot chat with filters.
 
 ```bash
 tgdl download [OPTIONS]
@@ -123,6 +136,7 @@ tgdl download [OPTIONS]
 Options:
   -c, --channel INTEGER       Channel ID to download from
   -g, --group INTEGER         Group ID to download from
+  -b, --bot INTEGER           Bot chat ID to download from
   -p, --photos               Download only photos
   -v, --videos               Download only videos
   -a, --audio                Download only audio files
