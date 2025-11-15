@@ -1,10 +1,21 @@
 # 🚀 Telegram Media Downloader - tgdl
 
+<div align="center">
+  <p>
+    
+![GitHub Repo stars](https://img.shields.io/github/stars/kavidu-dilhara/tgdl)
+![GitHub watchers](https://img.shields.io/github/watchers/kavidu-dilhara/tgdl)
+![GitHub forks](https://img.shields.io/github/forks/kavidu-dilhara/tgdl)
+![GitHub License](https://img.shields.io/github/license/kavidu-dilhara/tgdl)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/tgdl)
+![PyPI - Format](https://img.shields.io/pypi/format/tgdl)
+![PyPI - Status](https://img.shields.io/pypi/status/tgdl)
 [![PyPI version](https://badge.fury.io/py/tgdl.svg)](https://badge.fury.io/py/tgdl)
 [![Python versions](https://img.shields.io/pypi/pyversions/tgdl.svg)](https://pypi.org/project/tgdl/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
+  </p>
+</div>
 
 A powerful, high-performance CLI tool for downloading media from Telegram channels, groups, and messages. Built with async/await for **5-10x faster** downloads with smart filters and progress tracking.A powerful, high-performance CLI tool for downloading media from Telegram channels, groups, and messages. Built with async/await for **5-10x faster** downloads with smart filters and progress tracking.
 
