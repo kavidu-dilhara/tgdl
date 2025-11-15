@@ -1,0 +1,73 @@
+name: ❓ Question / Help
+description: Ask a question or get help with tgdl
+title: "[Question]: "
+labels: ["question", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? We're here to help!
+        
+        **Note**: For general Telegram API questions, please refer to [Telegram's documentation](https://core.telegram.org/api).
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: How do I...
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What I've Tried
+      description: What have you already tried to solve this?
+      placeholder: I tried...
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Any additional context that might help us answer your question
+      placeholder: I'm trying to...
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: tgdl Version
+      description: What version of tgdl are you using?
+      placeholder: "1.0.1"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      description: What OS are you running? (optional)
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+        - Not applicable
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      options:
+        - label: I have read the README documentation
+          required: true
+        - label: I have searched for similar questions in existing issues
+          required: true
+        - label: This is a question about tgdl (not about Telegram API in general)
+          required: true
