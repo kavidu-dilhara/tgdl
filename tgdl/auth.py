@@ -125,6 +125,6 @@ async def check_auth() -> bool:
     except Exception:
         try:
             await client.disconnect()
-        except:
+        except Exception:
             pass
         return False

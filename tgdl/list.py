@@ -36,6 +36,10 @@ async def get_channels() -> List[Dict[str, Any]]:
         
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching channels: {e}", fg='red'))
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
     
     return channels
 
@@ -69,6 +73,10 @@ async def get_groups() -> List[Dict[str, Any]]:
         
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching groups: {e}", fg='red'))
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
     
     return groups
 
@@ -103,6 +111,10 @@ async def get_bots() -> List[Dict[str, Any]]:
         
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching bots: {e}", fg='red'))
+        try:
+            await client.disconnect()
+        except Exception:
+            pass
     
     return bots
 

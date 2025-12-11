@@ -132,30 +132,31 @@ class Downloader:
         self, message, folder: Path, semaphore, pbar, downloaded_files: Set[str]
     ):
         """Download a single media file."""
-        async with semaphore:
-            try:
-                # Get filename
-                file_name = None
-                if message.file:
-                    file_name = message.file.name or f"{message.id}{message.file.ext}"
+        try:
+            # Get filename
+            file_name = None
+            if message.file:
+                file_name = message.file.name or f"{message.id}{message.file.ext}"
 
-                # Skip if already downloaded
-                if file_name and file_name in downloaded_files:
-                    pbar.update(1)
-                    return None, message.id
+            # Skip if already downloaded
+            if file_name and file_name in downloaded_files:
+                pbar.update(1)
+                return None, message.id
 
-                # Download
+            # Download with semaphore (allows parallel downloads)
+            async with semaphore:
                 file_path = await message.download_media(file=str(folder))
-                pbar.update(1)
+            
+            pbar.update(1)
 
-                if file_path:
-                    return file_path, message.id
-                return None, message.id
+            if file_path:
+                return file_path, message.id
+            return None, message.id
 
-            except Exception as e:
-                click.echo(f"\n✗ Error downloading message {message.id}: {e}")
-                pbar.update(1)
-                return None, message.id
+        except Exception as e:
+            click.echo(f"\n✗ Error downloading message {message.id}: {e}")
+            pbar.update(1)
+            return None, message.id
 
     async def download_from_entity(
         self, entity_id: int, limit: Optional[int] = None
@@ -176,6 +177,36 @@ class Downloader:
 
         try:
             await client.connect()
+            
+            # Get the entity from dialogs to ensure it's properly resolved
+            entity = None
+            try:
+                # Get all dialogs and search for the entity
+                async for dialog in client.iter_dialogs():
+                    if dialog.entity.id == entity_id:
+                        entity = dialog.entity
+                        break
+                
+                # If not found in dialogs, try to get it directly
+                if not entity:
+                    try:
+                        entity = await client.get_entity(entity_id)
+                    except Exception:
+                        click.echo(click.style(f"\n✗ Entity {entity_id} not found", fg="red"))
+                        click.echo("\n💡 Make sure:")
+                        click.echo(f"  1. You have access to this entity")
+                        click.echo(f"  2. You've interacted with it before")
+                        click.echo(f"  3. Try these commands to find the correct ID:")
+                        click.echo(f"     • tgdl channels - List all your channels")
+                        click.echo(f"     • tgdl groups - List all your groups")
+                        click.echo(f"     • tgdl bots - List all your bot chats")
+                        await client.disconnect()
+                        return 0
+                    
+            except Exception as e:
+                click.echo(click.style(f"\n✗ Error accessing entity: {e}", fg="red"))
+                await client.disconnect()
+                return 0
 
             # Create output directory
             folder = Path(self.output_dir) / f"entity_{entity_id}"
@@ -201,7 +232,7 @@ class Downloader:
             # Use min_id to get messages AFTER the last downloaded one
             # This way we only fetch NEW messages since last download
             async for message in client.iter_messages(
-                entity_id, min_id=last_message_id if last_message_id else 0
+                entity, min_id=last_message_id if last_message_id else 0
             ):
                 if self._should_download(message):
                     messages_to_download.append(message)
@@ -240,8 +271,8 @@ class Downloader:
 
             # Count successful downloads
             successful = sum(
-                1 for file_path, _ in results 
-                if file_path and not isinstance(file_path, Exception)
+                1 for result in results 
+                if not isinstance(result, Exception) and result[0] is not None
             )
 
             click.echo(
@@ -256,7 +287,7 @@ class Downloader:
             click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
             try:
                 await client.disconnect()
-            except:
+            except Exception:
                 pass
             return 0
 
@@ -354,7 +385,7 @@ class Downloader:
             click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
             try:
                 await client.disconnect()
-            except:
+            except Exception:
                 pass
             return False
 
