@@ -122,5 +122,9 @@ async def check_auth() -> bool:
         is_auth = await client.is_user_authorized()
         await client.disconnect()
         return is_auth
-    except:
+    except Exception:
+        try:
+            await client.disconnect()
+        except:
+            pass
         return False

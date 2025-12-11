@@ -69,6 +69,10 @@ class Downloader:
         if isinstance(message.media, MessageMediaDocument):
             document = message.media.document
             
+            # Skip if document is None (web pages, etc.)
+            if not document:
+                return None
+            
             # Check attributes
             for attr in document.attributes:
                 if isinstance(attr, DocumentAttributeVideo):
@@ -87,27 +91,34 @@ class Downloader:
             else:
                 return MediaType.DOCUMENT
 
+        # Handle other media types (return DOCUMENT for downloadable media)
         return None
 
     def _should_download(self, message) -> bool:
         """Check if message should be downloaded based on filters."""
         if not message.media:
             return False
+        
+        # Must have an actual file to download
+        if not message.file:
+            return False
 
         # Check media type filter
         media_type = self._get_media_type(message)
+        if not media_type:
+            return False
+            
         if MediaType.ALL not in self.media_types and media_type not in self.media_types:
             return False
 
         # Check file size
-        if message.file:
-            file_size = message.file.size
-            
-            if self.max_size and file_size > self.max_size:
-                return False
-            
-            if self.min_size and file_size < self.min_size:
-                return False
+        file_size = message.file.size
+        
+        if self.max_size and file_size > self.max_size:
+            return False
+        
+        if self.min_size and file_size < self.min_size:
+            return False
 
         return True
 
@@ -187,8 +198,10 @@ class Downloader:
 
             # Collect messages with media
             messages_to_download = []
+            # Use min_id to get messages AFTER the last downloaded one
+            # This way we only fetch NEW messages since last download
             async for message in client.iter_messages(
-                entity_id, offset_id=last_message_id, reverse=True
+                entity_id, min_id=last_message_id if last_message_id else 0
             ):
                 if self._should_download(message):
                     messages_to_download.append(message)
@@ -241,6 +254,10 @@ class Downloader:
 
         except Exception as e:
             click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
+            try:
+                await client.disconnect()
+            except:
+                pass
             return 0
 
     async def download_from_link(self, link: str) -> bool:
@@ -335,6 +352,10 @@ class Downloader:
 
         except Exception as e:
             click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
+            try:
+                await client.disconnect()
+            except:
+                pass
             return False
 
     def _parse_link(self, link: str):

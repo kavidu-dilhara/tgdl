@@ -30,7 +30,7 @@ class CredentialEncryption:
             import socket
             import getpass
             machine_id = f"{socket.gethostname()}-{getpass.getuser()}".encode()
-        except:
+        except Exception:
             # Fallback to random if machine ID fails
             machine_id = os.urandom(32)
         
@@ -50,7 +50,7 @@ class CredentialEncryption:
             try:
                 with open(self.key_file, 'rb') as f:
                     return f.read()
-            except:
+            except (IOError, OSError):
                 pass
         
         # Generate new key

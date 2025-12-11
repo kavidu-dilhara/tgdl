@@ -74,7 +74,7 @@ def login():
                 click.echo(click.style(f"✓ You're already logged in as {me.first_name} (ID: {me.id})", fg='green'))
                 click.echo("\nUse 'tgdl logout' to logout and login with a different account.")
                 return
-        except:
+        except Exception:
             pass
     
     try:
@@ -127,7 +127,7 @@ def logout():
                     return me
                 me = run_async(get_user_info())
                 click.echo(f"Currently logged in as: {me.first_name} (ID: {me.id})\n")
-        except:
+        except Exception:
             pass
         
         confirm = click.confirm("Are you sure you want to logout?", default=False)
@@ -147,8 +147,9 @@ def logout():
             os.remove(session_file)
         
         # Remove session-journal file if exists
-        if os.path.exists(session_file + '-journal'):
-            os.remove(session_file + '-journal')
+        session_journal = str(session_file) + '-journal'
+        if os.path.exists(session_journal):
+            os.remove(session_journal)
         
         # Remove config file
         if os.path.exists(config_file):
