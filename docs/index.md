@@ -1,14 +1,6 @@
 # tgdl - Telegram Media Downloader
 
-<div align="center">
-
-**High-performance CLI tool for downloading media from Telegram**
-
-[![PyPI version](https://badge.fury.io/py/tgdl.svg)](https://pypi.org/project/tgdl/)
-[![Python versions](https://img.shields.io/pypi/pyversions/tgdl.svg)](https://pypi.org/project/tgdl/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-</div>
+**High-performance CLI tool for downloading media from Telegram** [![PyPI version](https://badge.fury.io/py/tgdl.svg)](https://pypi.org/project/tgdl/) [![Python versions](https://img.shields.io/pypi/pyversions/tgdl.svg)](https://pypi.org/project/tgdl/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
