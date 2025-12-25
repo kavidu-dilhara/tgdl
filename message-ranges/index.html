@@ -1,0 +1,3107 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="High-performance Telegram media downloader CLI tool">
+      
+      
+        <meta name="author" content="kavidu-dilhara">
+      
+      
+        <link rel="canonical" href="https://kavidu-dilhara.github.io/tgdl/message-ranges/">
+      
+      
+        <link rel="prev" href="../media-filters/">
+      
+      
+        <link rel="next" href="../command-reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Message ID Ranges - tgdl Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#message-id-ranges" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="tgdl Documentation" class="md-header__button md-logo" aria-label="tgdl Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            tgdl Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Message ID Ranges
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="blue" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/kavidu-dilhara/tgdl" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kavidu-dilhara/tgdl
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../installation/" class="md-tabs__link">
+          
+  
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../authentication/" class="md-tabs__link">
+          
+  
+  
+  User Guide
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../command-reference/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../contributing/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Contributing
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="tgdl Documentation" class="md-nav__button md-logo" aria-label="tgdl Documentation" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    tgdl Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kavidu-dilhara/tgdl" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kavidu-dilhara/tgdl
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-credentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Credentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User Guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../commands/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basic Commands
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Advanced Usage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../media-filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Media Filters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Message ID Ranges
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Message ID Ranges
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-message-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Understanding Message IDs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding Message IDs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-are-message-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What are Message IDs?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-message-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding Message IDs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Finding Message IDs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#method-1-from-telegram-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 1: From Telegram Desktop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-2-from-downloaded-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 2: From Downloaded Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-3-using-download-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 3: Using download-link
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-4-from-telegram-mobile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 4: From Telegram Mobile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-range-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Range Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic Range Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#download-specific-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download Specific Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-specific-id-onwards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Specific ID Onwards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#up-to-specific-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Up to Specific ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#single-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single Message
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Cases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Use Cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-archive-historical-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Archive Historical Content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-get-recent-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Get Recent Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-re-download-failed-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Re-download Failed Section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-download-specific-eventperiod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Download Specific Event/Period
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-incremental-backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Incremental Backups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-sample-downloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Sample Downloads
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-skip-unwanted-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Skip Unwanted Content
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#combining-with-other-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combining with Other Filters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Combining with Other Filters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-media-type-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Media Type Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-size-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Size Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-download-limit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Download Limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-techniques" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Techniques
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Techniques">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-progress-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Progress Tracking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-latest-message-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding Latest Message ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-downloads-by-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Downloads by Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gap-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works-internally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works Internally
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works Internally">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#telethons-iter_messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Telethon's iter_messages()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-tracking-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Tracking Logic
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations-and-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations and Considerations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Limitations and Considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#empty-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Empty Ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deleted-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleted Messages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#large-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Large Ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#range-vs-limit-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Range vs Limit Interaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-files-downloaded-from-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No files downloaded from range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrong-range-downloaded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wrong range downloaded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-tracking-interferes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress tracking interferes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples-gallery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples Gallery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples Gallery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-test-with-small-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Test with Small Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-use-appropriate-batch-sizes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Use Appropriate Batch Sizes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-combine-with-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Combine with Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-monitor-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Monitor Progress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-handle-errors-gracefully" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Handle Errors Gracefully
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command Template
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../command-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Command Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAQ
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contributing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#understanding-message-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Understanding Message IDs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Understanding Message IDs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-are-message-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What are Message IDs?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-message-ids" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding Message IDs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Finding Message IDs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#method-1-from-telegram-desktop" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 1: From Telegram Desktop
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-2-from-downloaded-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 2: From Downloaded Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-3-using-download-link" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 3: Using download-link
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#method-4-from-telegram-mobile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method 4: From Telegram Mobile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#basic-range-syntax" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Basic Range Syntax
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Basic Range Syntax">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#download-specific-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Download Specific Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#from-specific-id-onwards" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From Specific ID Onwards
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#up-to-specific-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Up to Specific ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#single-message" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Single Message
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#use-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Use Cases
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Use Cases">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-archive-historical-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Archive Historical Content
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-get-recent-updates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Get Recent Updates
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-re-download-failed-section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Re-download Failed Section
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-download-specific-eventperiod" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Download Specific Event/Period
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-incremental-backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Incremental Backups
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-sample-downloads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Sample Downloads
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-skip-unwanted-content" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Skip Unwanted Content
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#combining-with-other-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combining with Other Filters
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Combining with Other Filters">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#with-media-type-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Media Type Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-size-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Size Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#with-download-limit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        With Download Limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combined-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Combined Example
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#advanced-techniques" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Techniques
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Advanced Techniques">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#automatic-progress-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Automatic Progress Tracking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#finding-latest-message-id" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finding Latest Message ID
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#batch-downloads-by-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Batch Downloads by Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gap-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gap Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works-internally" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How It Works Internally
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="How It Works Internally">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#telethons-iter_messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Telethon's iter_messages()
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-tracking-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress Tracking Logic
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations-and-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations and Considerations
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Limitations and Considerations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#empty-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Empty Ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#deleted-messages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deleted Messages
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#large-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Large Ranges
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#range-vs-limit-interaction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Range vs Limit Interaction
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#troubleshooting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Troubleshooting
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Troubleshooting">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#no-files-downloaded-from-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        No files downloaded from range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wrong-range-downloaded" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wrong range downloaded
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#progress-tracking-interferes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progress tracking interferes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples-gallery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples Gallery
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples Gallery">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#beginner-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Beginner Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#intermediate-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Intermediate Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#advanced-examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Advanced Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Best Practices">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-test-with-small-range" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Test with Small Range
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-use-appropriate-batch-sizes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Use Appropriate Batch Sizes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-combine-with-filters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Combine with Filters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-monitor-progress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Monitor Progress
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-handle-errors-gracefully" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Handle Errors Gracefully
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#quick-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Reference
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Reference">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#command-template" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command Template
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-patterns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Common Patterns
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next Steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="message-id-ranges">Message ID Ranges</h1>
+<p>Complete guide to downloading specific message ranges from Telegram entities.</p>
+<h2 id="overview">Overview</h2>
+<p>Message ID ranges allow you to download specific portions of a channel, group, or bot chat by specifying start and end message IDs.</p>
+<p><strong>Benefits:</strong>
+- Download only what you need
+- Re-download specific sections
+- Skip old or irrelevant content
+- Manage large archives efficiently
+- Targeted backup strategies</p>
+<hr />
+<h2 id="understanding-message-ids">Understanding Message IDs</h2>
+<h3 id="what-are-message-ids">What are Message IDs?</h3>
+<p>Every message in a Telegram chat has a unique sequential ID number.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Message ID 1  ← First message (oldest)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Message ID 2
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Message ID 3
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>...
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>Message ID N  ← Latest message (newest)
+</code></pre></div>
+<p><strong>Key points:</strong>
+- IDs start at 1
+- IDs increment by 1 for each message
+- IDs are unique within each entity (channel/group/bot)
+- IDs never change
+- Deleted messages leave gaps</p>
+<h3 id="finding-message-ids">Finding Message IDs</h3>
+<h4 id="method-1-from-telegram-desktop">Method 1: From Telegram Desktop</h4>
+<ol>
+<li>Right-click on a message</li>
+<li>Select "Copy Message Link"</li>
+<li>Link format: <code>https://t.me/channel/12345</code></li>
+<li>The last number (12345) is the message ID</li>
+</ol>
+<p><strong>Public channel example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>https://t.me/technews/12345
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>                      └─┬──┘
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>                    message ID
+</code></pre></div></p>
+<p><strong>Private channel example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>https://t.me/c/1234567890/54321
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>                       └───┬──┘
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                      message ID
+</code></pre></div></p>
+<h4 id="method-2-from-downloaded-files">Method 2: From Downloaded Files</h4>
+<p>tgdl names files with message ID:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>ls<span class="w"> </span>downloads/entity_1234567890/
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># Output:</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># 12345.jpg    ← Message ID is 12345</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># 12346.mp4    ← Message ID is 12346</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># 12347.pdf    ← Message ID is 12347</span>
+</code></pre></div>
+<h4 id="method-3-using-download-link">Method 3: Using download-link</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Download single message to see its ID</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>tgdl<span class="w"> </span>download-link<span class="w"> </span>https://t.me/channel/12345
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Check downloaded file</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>ls<span class="w"> </span>downloads/
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># Output: 12345.ext</span>
+</code></pre></div>
+<h4 id="method-4-from-telegram-mobile">Method 4: From Telegram Mobile</h4>
+<ol>
+<li>Long-press message</li>
+<li>Tap "Forward"</li>
+<li>Forward to "Saved Messages"</li>
+<li>In Saved Messages, the forwarded message shows original date</li>
+<li>Use method 1 (copy link) from there</li>
+</ol>
+<hr />
+<h2 id="basic-range-syntax">Basic Range Syntax</h2>
+<h3 id="command-format">Command Format</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="p">|</span>g<span class="p">|</span>b<span class="w"> </span>ENTITY_ID<span class="w"> </span>--min-id<span class="w"> </span>MIN<span class="w"> </span>--max-id<span class="w"> </span>MAX
+</code></pre></div>
+<p><strong>Parameters:</strong>
+- <code>--min-id</code> - Start from this message ID (inclusive)
+- <code>--max-id</code> - Stop at this message ID (inclusive)
+- Both are optional
+- Can use one or both</p>
+<h3 id="examples">Examples</h3>
+<h4 id="download-specific-range">Download Specific Range</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Messages 100 to 200 (inclusive)</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span>
+</code></pre></div>
+<p>This downloads messages: 100, 101, 102, ..., 199, 200</p>
+<h4 id="from-specific-id-onwards">From Specific ID Onwards</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># From message 500 to latest</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">500</span>
+</code></pre></div>
+<h4 id="up-to-specific-id">Up to Specific ID</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># From oldest to message 1000</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">1000</span>
+</code></pre></div>
+<h4 id="single-message">Single Message</h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Only message 12345</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">12345</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">12345</span>
+</code></pre></div>
+<hr />
+<h2 id="use-cases">Use Cases</h2>
+<h3 id="1-archive-historical-content">1. Archive Historical Content</h3>
+<p><strong>Scenario:</strong> Download old messages from a channel you just joined.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># First 1000 messages (historical archive)</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">1000</span>
+</code></pre></div>
+<p><strong>Benefits:</strong>
+- Get old content without downloading everything
+- Separate old from new
+- Manage archive sizes</p>
+<h3 id="2-get-recent-updates">2. Get Recent Updates</h3>
+<p><strong>Scenario:</strong> You've already downloaded messages 1-5000, now want 5000+.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Everything after message 5000</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">5001</span>
+</code></pre></div>
+<p><strong>Alternative (automatic):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># tgdl automatically tracks progress</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="c1"># Will download from last saved message ID</span>
+</code></pre></div></p>
+<h3 id="3-re-download-failed-section">3. Re-download Failed Section</h3>
+<p><strong>Scenario:</strong> Downloads failed for messages 2000-2100, want to retry.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Re-download specific range</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">2000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">2100</span>
+</code></pre></div>
+<h3 id="4-download-specific-eventperiod">4. Download Specific Event/Period</h3>
+<p><strong>Scenario:</strong> Know that interesting content was posted in messages 3000-3500.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Download specific event range</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">3000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">3500</span><span class="w"> </span>-o<span class="w"> </span>~/Events/Conference2024
+</code></pre></div>
+<h3 id="5-incremental-backups">5. Incremental Backups</h3>
+<p><strong>Scenario:</strong> Create monthly backups with specific ranges.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># January (messages 1-1000)</span>
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">1000</span><span class="w"> </span>-o<span class="w"> </span>~/Backups/2024-01
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># February (messages 1001-2000)</span>
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1001</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">2000</span><span class="w"> </span>-o<span class="w"> </span>~/Backups/2024-02
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># March (messages 2001-3000)</span>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">2001</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">3000</span><span class="w"> </span>-o<span class="w"> </span>~/Backups/2024-03
+</code></pre></div>
+<h3 id="6-sample-downloads">6. Sample Downloads</h3>
+<p><strong>Scenario:</strong> Want to see what's in different parts of a large channel.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Sample early messages</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">50</span>
+<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
+<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Sample middle</span>
+<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">5000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">5050</span>
+<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
+<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Sample recent</span>
+<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">9900</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">10000</span>
+</code></pre></div>
+<h3 id="7-skip-unwanted-content">7. Skip Unwanted Content</h3>
+<p><strong>Scenario:</strong> Channel has spam/ads in messages 1000-2000, want to skip.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Get messages before spam</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">999</span>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Get messages after spam</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">2001</span>
+</code></pre></div>
+<hr />
+<h2 id="combining-with-other-filters">Combining with Other Filters</h2>
+<h3 id="with-media-type-filters">With Media Type Filters</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="c1"># Videos in specific range</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span><span class="w"> </span>-v
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="c1"># Photos from recent messages</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">9000</span><span class="w"> </span>-p
+</code></pre></div>
+<h3 id="with-size-filters">With Size Filters</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="c1"># Large files in specific range</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">500</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--min-size<span class="w"> </span>100MB
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># Small photos from old messages</span>
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">500</span><span class="w"> </span>-p<span class="w"> </span>--max-size<span class="w"> </span>5MB
+</code></pre></div>
+<h3 id="with-download-limit">With Download Limit</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a><span class="c1"># First 10 files from range</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">2000</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">10</span>
+</code></pre></div>
+<p><strong>Important:</strong> Limit applies AFTER range filter.</p>
+<p><strong>Example:</strong>
+- Range: 1000-2000 (1000 messages)
+- Has: 500 media files in range
+- Limit: 10
+- Result: First 10 of those 500 media files</p>
+<h3 id="combined-example">Combined Example</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Recent videos, 50-100MB, max 20 files</span>
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="w">  </span>--min-id<span class="w"> </span><span class="m">9000</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="w">  </span>-v<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="w">  </span>--min-size<span class="w"> </span>50MB<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="w">  </span>--max-size<span class="w"> </span>100MB<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="w">  </span>--limit<span class="w"> </span><span class="m">20</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-21-8" name="__codelineno-21-8" href="#__codelineno-21-8"></a><span class="w">  </span>--concurrent<span class="w"> </span><span class="m">10</span>
+</code></pre></div>
+<hr />
+<h2 id="advanced-techniques">Advanced Techniques</h2>
+<h3 id="automatic-progress-tracking">Automatic Progress Tracking</h3>
+<p>tgdl automatically tracks the last downloaded message ID:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># First run</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span>
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="c1"># Downloads messages 1-1000</span>
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="c1"># Saves: {&quot;1234567890&quot;: 1000} in progress.json</span>
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a><span class="c1"># Second run (later)</span>
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span>
+<a id="__codelineno-22-8" name="__codelineno-22-8" href="#__codelineno-22-8"></a><span class="c1"># Reads progress.json</span>
+<a id="__codelineno-22-9" name="__codelineno-22-9" href="#__codelineno-22-9"></a><span class="c1"># Downloads messages 1001+ (new content only)</span>
+</code></pre></div>
+<p><strong>Manual override:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Force specific range (ignores progress)</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1</span>
+</code></pre></div></p>
+<h3 id="finding-latest-message-id">Finding Latest Message ID</h3>
+<p><strong>Method 1: Download one message</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Get latest message</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">1</span>
+<a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
+<a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="c1"># Check filename</span>
+<a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>ls<span class="w"> </span>downloads/entity_1234567890/
+<a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a><span class="c1"># Latest file shows latest message ID</span>
+</code></pre></div></p>
+<p><strong>Method 2: From Telegram app</strong>
+- Scroll to bottom of channel
+- Copy message link
+- Extract ID from link</p>
+<h3 id="batch-downloads-by-range">Batch Downloads by Range</h3>
+<p><strong>Script example (Linux/macOS):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="ch">#!/bin/bash</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="nv">CHANNEL</span><span class="o">=</span><span class="m">1234567890</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="nv">BATCH_SIZE</span><span class="o">=</span><span class="m">1000</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="k">for</span><span class="w"> </span>start<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..10000..1000<span class="o">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">    </span><span class="nv">end</span><span class="o">=</span><span class="k">$((</span><span class="nv">start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="nv">BATCH_SIZE</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="m">1</span><span class="k">))</span>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Downloading messages </span><span class="nv">$start</span><span class="s2"> to </span><span class="nv">$end</span><span class="s2">...&quot;</span>
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="w">    </span>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="nv">$CHANNEL</span><span class="w"> </span>--min-id<span class="w"> </span><span class="nv">$start</span><span class="w"> </span>--max-id<span class="w"> </span><span class="nv">$end</span>
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">    </span>sleep<span class="w"> </span><span class="m">60</span><span class="w">  </span><span class="c1"># Wait between batches</span>
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="k">done</span>
+</code></pre></div></p>
+<p><strong>Script example (Windows PowerShell):</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="nv">$channel</span> <span class="p">=</span> <span class="n">1234567890</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="nv">$batchSize</span> <span class="p">=</span> <span class="n">1000</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="k">for</span> <span class="p">(</span><span class="nv">$start</span> <span class="p">=</span> <span class="n">1</span><span class="p">;</span> <span class="nv">$start</span> <span class="o">-le</span> <span class="n">10000</span><span class="p">;</span> <span class="nv">$start</span> <span class="p">+=</span> <span class="nv">$batchSize</span><span class="p">)</span> <span class="p">{</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>    <span class="nv">$end</span> <span class="p">=</span> <span class="nv">$start</span> <span class="p">+</span> <span class="nv">$batchSize</span> <span class="p">-</span> <span class="n">1</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a>    <span class="nb">Write-Host</span> <span class="s2">&quot;Downloading messages $start to $end...&quot;</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a>    <span class="n">tgdl</span> <span class="n">download</span> <span class="n">-c</span> <span class="nv">$channel</span> <span class="p">-</span><span class="n">-min-id</span> <span class="nv">$start</span> <span class="p">-</span><span class="n">-max-id</span> <span class="nv">$end</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a>    <span class="nb">Start-Sleep</span> <span class="n">-Seconds</span> <span class="n">60</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="p">}</span>
+</code></pre></div></p>
+<h3 id="gap-detection">Gap Detection</h3>
+<p><strong>Find missing downloads:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="ch">#!/bin/bash</span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a><span class="c1"># List downloaded message IDs</span>
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>ls<span class="w"> </span>downloads/entity_1234567890/<span class="w"> </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span><span class="s1">&#39;s/\..*//&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sort<span class="w"> </span>-n<span class="w"> </span>&gt;<span class="w"> </span>downloaded.txt
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>
+<a id="__codelineno-27-6" name="__codelineno-27-6" href="#__codelineno-27-6"></a><span class="c1"># Check for gaps</span>
+<a id="__codelineno-27-7" name="__codelineno-27-7" href="#__codelineno-27-7"></a><span class="nv">prev</span><span class="o">=</span><span class="m">0</span>
+<a id="__codelineno-27-8" name="__codelineno-27-8" href="#__codelineno-27-8"></a><span class="k">while</span><span class="w"> </span><span class="nb">read</span><span class="w"> </span>id<span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-27-9" name="__codelineno-27-9" href="#__codelineno-27-9"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="o">[</span><span class="w"> </span><span class="k">$((</span><span class="nv">id</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nv">prev</span><span class="k">))</span><span class="w"> </span>-gt<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="o">]</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-27-10" name="__codelineno-27-10" href="#__codelineno-27-10"></a><span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Gap: </span><span class="nv">$prev</span><span class="s2"> to </span><span class="nv">$id</span><span class="s2">&quot;</span>
+<a id="__codelineno-27-11" name="__codelineno-27-11" href="#__codelineno-27-11"></a><span class="w">    </span><span class="k">fi</span>
+<a id="__codelineno-27-12" name="__codelineno-27-12" href="#__codelineno-27-12"></a><span class="w">    </span><span class="nv">prev</span><span class="o">=</span><span class="nv">$id</span>
+<a id="__codelineno-27-13" name="__codelineno-27-13" href="#__codelineno-27-13"></a><span class="k">done</span><span class="w"> </span>&lt;<span class="w"> </span>downloaded.txt
+</code></pre></div></p>
+<hr />
+<h2 id="how-it-works-internally">How It Works Internally</h2>
+<h3 id="telethons-iter_messages">Telethon's iter_messages()</h3>
+<p>tgdl uses Telethon's <code>iter_messages()</code> method:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">async</span> <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">iter_messages</span><span class="p">(</span>
+<a id="__codelineno-28-2" name="__codelineno-28-2" href="#__codelineno-28-2"></a>    <span class="n">entity</span><span class="p">,</span>
+<a id="__codelineno-28-3" name="__codelineno-28-3" href="#__codelineno-28-3"></a>    <span class="n">min_id</span><span class="o">=</span><span class="n">min_msg_id</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># Subtract 1 for inclusive</span>
+<a id="__codelineno-28-4" name="__codelineno-28-4" href="#__codelineno-28-4"></a>    <span class="n">max_id</span><span class="o">=</span><span class="n">max_msg_id</span><span class="p">,</span>
+<a id="__codelineno-28-5" name="__codelineno-28-5" href="#__codelineno-28-5"></a>    <span class="n">reverse</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Newest first</span>
+<a id="__codelineno-28-6" name="__codelineno-28-6" href="#__codelineno-28-6"></a><span class="p">):</span>
+<a id="__codelineno-28-7" name="__codelineno-28-7" href="#__codelineno-28-7"></a>    <span class="c1"># Process message</span>
+</code></pre></div>
+<p><strong>Important details:</strong>
+- <code>min_id</code> is <strong>exclusive</strong> in Telethon
+- tgdl subtracts 1 to make it <strong>inclusive</strong>
+- <code>max_id</code> is already <strong>inclusive</strong>
+- Messages fetched newest to oldest (unless <code>reverse=True</code>)</p>
+<p><strong>Example:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># User command</span>
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span>ID<span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span>
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="c1"># Internal Telethon call</span>
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a>iter_messages<span class="o">(</span>entity,<span class="w"> </span><span class="nv">min_id</span><span class="o">=</span><span class="m">99</span>,<span class="w"> </span><span class="nv">max_id</span><span class="o">=</span><span class="m">200</span><span class="o">)</span>
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="c1"># Returns messages 100, 101, ..., 199, 200</span>
+</code></pre></div></p>
+<h3 id="progress-tracking-logic">Progress Tracking Logic</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># 1. Read progress</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a><span class="n">last_id</span> <span class="o">=</span> <span class="n">progress</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">entity_id</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="c1"># 2. Use as min_id if no explicit range</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">min_msg_id</span><span class="p">:</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>    <span class="n">min_msg_id</span> <span class="o">=</span> <span class="n">last_id</span> <span class="o">+</span> <span class="mi">1</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="c1"># 3. Download messages</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a><span class="c1"># ... download logic ...</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a><span class="c1"># 4. Update progress with highest downloaded ID</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="n">progress</span><span class="p">[</span><span class="n">entity_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">highest_downloaded_id</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a><span class="n">save_progress</span><span class="p">(</span><span class="n">progress</span><span class="p">)</span>
+</code></pre></div>
+<hr />
+<h2 id="limitations-and-considerations">Limitations and Considerations</h2>
+<h3 id="empty-ranges">Empty Ranges</h3>
+<p>If range contains no media files:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="c1"># May download 0 files if range only has text messages</span>
+</code></pre></div>
+<p><strong>Check first:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a><span class="c1"># Try with limit</span>
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">1</span>
+</code></pre></div></p>
+<h3 id="deleted-messages">Deleted Messages</h3>
+<p>Deleted messages leave gaps in IDs:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>Message 10 ← Exists
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>Message 11 ← Deleted (gap)
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>Message 12 ← Exists
+</code></pre></div>
+<p><strong>Impact:</strong>
+- No errors
+- Simply skipped (not counted)
+- Range 10-12 downloads messages 10 and 12 only</p>
+<h3 id="large-ranges">Large Ranges</h3>
+<p>Very large ranges may take long:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># Inefficient: Checking 100,000 messages</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">100000</span><span class="w"> </span>-v
+</code></pre></div>
+<p><strong>Better approach:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1"># Use limit if you don&#39;t need all</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">100000</span><span class="w"> </span>-v<span class="w"> </span>--limit<span class="w"> </span><span class="m">100</span>
+</code></pre></div></p>
+<h3 id="range-vs-limit-interaction">Range vs Limit Interaction</h3>
+<p><strong>Important:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="c1"># This does NOT mean &quot;download 10 messages in range&quot;</span>
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a><span class="c1"># It means &quot;from messages in range, download first 10 media files&quot;</span>
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">10</span>
+</code></pre></div>
+<p><strong>Execution:</strong>
+1. Filter messages: 100-200
+2. Filter media: Only messages with media
+3. Apply limit: First 10</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="no-files-downloaded-from-range">No files downloaded from range</h3>
+<p><strong>Possible causes:</strong></p>
+<ol>
+<li>
+<p><strong>No media in range:</strong>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="c1"># Check without media filters</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span>ID<span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span><span class="w"> </span>--limit<span class="w"> </span><span class="m">1</span>
+</code></pre></div></p>
+</li>
+<li>
+<p><strong>All files already downloaded:</strong></p>
+</li>
+<li>Normal behavior</li>
+<li>
+<p>tgdl skips existing files</p>
+</li>
+<li>
+<p><strong>Range beyond channel size:</strong>
+   <div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a><span class="c1"># If channel only has 1000 messages</span>
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span>ID<span class="w"> </span>--min-id<span class="w"> </span><span class="m">2000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">3000</span>
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a><span class="c1"># Downloads 0 files</span>
+</code></pre></div></p>
+</li>
+</ol>
+<h3 id="wrong-range-downloaded">Wrong range downloaded</h3>
+<p><strong>Check command:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a><span class="c1"># Make sure IDs are correct</span>
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span>
+</code></pre></div></p>
+<p><strong>Verify:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a><span class="c1"># Check downloaded filenames</span>
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>ls<span class="w"> </span>downloads/entity_1234567890/
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a><span class="c1"># Should see 100.ext, 101.ext, etc.</span>
+</code></pre></div></p>
+<h3 id="progress-tracking-interferes">Progress tracking interferes</h3>
+<p><strong>Progress takes precedence:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a><span class="c1"># progress.json has: {&quot;1234567890&quot;: 5000}</span>
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a><span class="c1"># This command</span>
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">200</span>
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a><span class="c1"># Actually downloads from 5001 (progress overrides)</span>
+</code></pre></div></p>
+<p><strong>Solution - reset progress for that entity:</strong>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a><span class="c1"># Edit progress.json, remove entity or set to 0</span>
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a><span class="c1"># OR force specific range by ensuring max-id &gt; progress</span>
+</code></pre></div></p>
+<hr />
+<h2 id="examples-gallery">Examples Gallery</h2>
+<h3 id="beginner-examples">Beginner Examples</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a><span class="c1"># Download first 100 messages</span>
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">100</span>
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a><span class="c1"># Download last 100 messages (if latest is 10000)</span>
+<a id="__codelineno-43-5" name="__codelineno-43-5" href="#__codelineno-43-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">9900</span>
+<a id="__codelineno-43-6" name="__codelineno-43-6" href="#__codelineno-43-6"></a>
+<a id="__codelineno-43-7" name="__codelineno-43-7" href="#__codelineno-43-7"></a><span class="c1"># Download single message</span>
+<a id="__codelineno-43-8" name="__codelineno-43-8" href="#__codelineno-43-8"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">12345</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">12345</span>
+</code></pre></div>
+<h3 id="intermediate-examples">Intermediate Examples</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a><span class="c1"># Videos from specific range</span>
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">2000</span><span class="w"> </span>-v
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a><span class="c1"># Photos under 5MB from old messages</span>
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">500</span><span class="w"> </span>-p<span class="w"> </span>--max-size<span class="w"> </span>5MB
+<a id="__codelineno-44-6" name="__codelineno-44-6" href="#__codelineno-44-6"></a>
+<a id="__codelineno-44-7" name="__codelineno-44-7" href="#__codelineno-44-7"></a><span class="c1"># Recent large files</span>
+<a id="__codelineno-44-8" name="__codelineno-44-8" href="#__codelineno-44-8"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">9000</span><span class="w"> </span>--min-size<span class="w"> </span>50MB
+</code></pre></div>
+<h3 id="advanced-examples">Advanced Examples</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a><span class="c1"># HD videos from conference messages</span>
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a><span class="w">  </span>--min-id<span class="w"> </span><span class="m">3000</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-45-4" name="__codelineno-45-4" href="#__codelineno-45-4"></a><span class="w">  </span>--max-id<span class="w"> </span><span class="m">3500</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-45-5" name="__codelineno-45-5" href="#__codelineno-45-5"></a><span class="w">  </span>-v<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-45-6" name="__codelineno-45-6" href="#__codelineno-45-6"></a><span class="w">  </span>--min-size<span class="w"> </span>100MB<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-45-7" name="__codelineno-45-7" href="#__codelineno-45-7"></a><span class="w">  </span>--max-size<span class="w"> </span>500MB<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-45-8" name="__codelineno-45-8" href="#__codelineno-45-8"></a><span class="w">  </span>-o<span class="w"> </span>~/Conferences/2024/Videos
+<a id="__codelineno-45-9" name="__codelineno-45-9" href="#__codelineno-45-9"></a>
+<a id="__codelineno-45-10" name="__codelineno-45-10" href="#__codelineno-45-10"></a><span class="c1"># Sample every 1000 messages</span>
+<a id="__codelineno-45-11" name="__codelineno-45-11" href="#__codelineno-45-11"></a><span class="k">for</span><span class="w"> </span>i<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">{</span><span class="m">0</span>..10000..1000<span class="o">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-45-12" name="__codelineno-45-12" href="#__codelineno-45-12"></a><span class="w">  </span>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="nv">$i</span><span class="w"> </span>--max-id<span class="w"> </span><span class="k">$((</span><span class="nv">i</span><span class="o">+</span><span class="m">10</span><span class="k">))</span>
+<a id="__codelineno-45-13" name="__codelineno-45-13" href="#__codelineno-45-13"></a><span class="k">done</span>
+<a id="__codelineno-45-14" name="__codelineno-45-14" href="#__codelineno-45-14"></a>
+<a id="__codelineno-45-15" name="__codelineno-45-15" href="#__codelineno-45-15"></a><span class="c1"># Batch download with error handling</span>
+<a id="__codelineno-45-16" name="__codelineno-45-16" href="#__codelineno-45-16"></a><span class="c1">#!/bin/bash</span>
+<a id="__codelineno-45-17" name="__codelineno-45-17" href="#__codelineno-45-17"></a><span class="k">for</span><span class="w"> </span>start<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..10000..500<span class="o">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-45-18" name="__codelineno-45-18" href="#__codelineno-45-18"></a><span class="w">    </span><span class="nv">end</span><span class="o">=</span><span class="k">$((</span><span class="nv">start</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="m">499</span><span class="k">))</span>
+<a id="__codelineno-45-19" name="__codelineno-45-19" href="#__codelineno-45-19"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span>!<span class="w"> </span>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="nv">$start</span><span class="w"> </span>--max-id<span class="w"> </span><span class="nv">$end</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-45-20" name="__codelineno-45-20" href="#__codelineno-45-20"></a><span class="w">        </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Failed: </span><span class="nv">$start</span><span class="s2">-</span><span class="nv">$end</span><span class="s2">&quot;</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>failed_ranges.txt
+<a id="__codelineno-45-21" name="__codelineno-45-21" href="#__codelineno-45-21"></a><span class="w">    </span><span class="k">fi</span>
+<a id="__codelineno-45-22" name="__codelineno-45-22" href="#__codelineno-45-22"></a><span class="w">    </span>sleep<span class="w"> </span><span class="m">60</span>
+<a id="__codelineno-45-23" name="__codelineno-45-23" href="#__codelineno-45-23"></a><span class="k">done</span>
+</code></pre></div>
+<hr />
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-test-with-small-range">1. Test with Small Range</h3>
+<div class="admonition tip">
+<p class="admonition-title">Test First</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a><span class="c1"># Test with 10-message range</span>
+<a id="__codelineno-46-2" name="__codelineno-46-2" href="#__codelineno-46-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">110</span>
+<a id="__codelineno-46-3" name="__codelineno-46-3" href="#__codelineno-46-3"></a>
+<a id="__codelineno-46-4" name="__codelineno-46-4" href="#__codelineno-46-4"></a><span class="c1"># If successful, expand range</span>
+<a id="__codelineno-46-5" name="__codelineno-46-5" href="#__codelineno-46-5"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">100</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">1000</span>
+</code></pre></div>
+</div>
+<h3 id="2-use-appropriate-batch-sizes">2. Use Appropriate Batch Sizes</h3>
+<div class="admonition tip">
+<p class="admonition-title">Batch Strategy</p>
+<ul>
+<li>Small files: 1000-5000 messages per batch</li>
+<li>Large files: 100-500 messages per batch</li>
+<li>Very large files: 50-100 messages per batch</li>
+</ul>
+</div>
+<h3 id="3-combine-with-filters">3. Combine with Filters</h3>
+<div class="admonition tip">
+<p class="admonition-title">Efficient Filtering</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a><span class="c1"># Instead of downloading everything then filtering</span>
+<a id="__codelineno-47-2" name="__codelineno-47-2" href="#__codelineno-47-2"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span><span class="m">1234567890</span><span class="w"> </span>--min-id<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">2000</span><span class="w"> </span>-v<span class="w"> </span>--max-size<span class="w"> </span>100MB
+</code></pre></div>
+</div>
+<h3 id="4-monitor-progress">4. Monitor Progress</h3>
+<div class="admonition tip">
+<p class="admonition-title">Track Progress</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a><span class="c1"># Check progress file</span>
+<a id="__codelineno-48-2" name="__codelineno-48-2" href="#__codelineno-48-2"></a>cat<span class="w"> </span>~/.tgdl/progress.json
+<a id="__codelineno-48-3" name="__codelineno-48-3" href="#__codelineno-48-3"></a>
+<a id="__codelineno-48-4" name="__codelineno-48-4" href="#__codelineno-48-4"></a><span class="c1"># Backup before major operations</span>
+<a id="__codelineno-48-5" name="__codelineno-48-5" href="#__codelineno-48-5"></a>cp<span class="w"> </span>~/.tgdl/progress.json<span class="w"> </span>~/.tgdl/progress.backup
+</code></pre></div>
+</div>
+<h3 id="5-handle-errors-gracefully">5. Handle Errors Gracefully</h3>
+<div class="admonition tip">
+<p class="admonition-title">Error Handling</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a><span class="c1"># Script with retry logic</span>
+<a id="__codelineno-49-2" name="__codelineno-49-2" href="#__codelineno-49-2"></a><span class="c1">#!/bin/bash</span>
+<a id="__codelineno-49-3" name="__codelineno-49-3" href="#__codelineno-49-3"></a><span class="k">for</span><span class="w"> </span>attempt<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="o">{</span><span class="m">1</span>..3<span class="o">}</span><span class="p">;</span><span class="w"> </span><span class="k">do</span>
+<a id="__codelineno-49-4" name="__codelineno-49-4" href="#__codelineno-49-4"></a><span class="w">    </span><span class="k">if</span><span class="w"> </span>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="w"> </span>ID<span class="w"> </span>--min-id<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--max-id<span class="w"> </span><span class="m">2000</span><span class="p">;</span><span class="w"> </span><span class="k">then</span>
+<a id="__codelineno-49-5" name="__codelineno-49-5" href="#__codelineno-49-5"></a><span class="w">        </span><span class="k">break</span>
+<a id="__codelineno-49-6" name="__codelineno-49-6" href="#__codelineno-49-6"></a><span class="w">    </span><span class="k">fi</span>
+<a id="__codelineno-49-7" name="__codelineno-49-7" href="#__codelineno-49-7"></a><span class="w">    </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;Attempt </span><span class="nv">$attempt</span><span class="s2"> failed, retrying...&quot;</span>
+<a id="__codelineno-49-8" name="__codelineno-49-8" href="#__codelineno-49-8"></a><span class="w">    </span>sleep<span class="w"> </span><span class="m">60</span>
+<a id="__codelineno-49-9" name="__codelineno-49-9" href="#__codelineno-49-9"></a><span class="k">done</span>
+</code></pre></div>
+</div>
+<hr />
+<h2 id="quick-reference">Quick Reference</h2>
+<h3 id="command-template">Command Template</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>tgdl<span class="w"> </span>download<span class="w"> </span>-c<span class="p">|</span>g<span class="p">|</span>b<span class="w"> </span>ID<span class="w"> </span><span class="o">[</span>--min-id<span class="w"> </span>MIN<span class="o">]</span><span class="w"> </span><span class="o">[</span>--max-id<span class="w"> </span>MAX<span class="o">]</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</code></pre></div>
+<h3 id="common-patterns">Common Patterns</h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a><span class="c1"># From ID onwards</span>
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>--min-id<span class="w"> </span>ID
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a><span class="c1"># Up to ID</span>
+<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a>--max-id<span class="w"> </span>ID
+<a id="__codelineno-51-6" name="__codelineno-51-6" href="#__codelineno-51-6"></a>
+<a id="__codelineno-51-7" name="__codelineno-51-7" href="#__codelineno-51-7"></a><span class="c1"># Specific range</span>
+<a id="__codelineno-51-8" name="__codelineno-51-8" href="#__codelineno-51-8"></a>--min-id<span class="w"> </span>START<span class="w"> </span>--max-id<span class="w"> </span>END
+<a id="__codelineno-51-9" name="__codelineno-51-9" href="#__codelineno-51-9"></a>
+<a id="__codelineno-51-10" name="__codelineno-51-10" href="#__codelineno-51-10"></a><span class="c1"># Single message</span>
+<a id="__codelineno-51-11" name="__codelineno-51-11" href="#__codelineno-51-11"></a>--min-id<span class="w"> </span>ID<span class="w"> </span>--max-id<span class="w"> </span>ID
+<a id="__codelineno-51-12" name="__codelineno-51-12" href="#__codelineno-51-12"></a>
+<a id="__codelineno-51-13" name="__codelineno-51-13" href="#__codelineno-51-13"></a><span class="c1"># With filters</span>
+<a id="__codelineno-51-14" name="__codelineno-51-14" href="#__codelineno-51-14"></a>--min-id<span class="w"> </span>ID<span class="w"> </span>--max-id<span class="w"> </span>ID<span class="w"> </span>-v<span class="w"> </span>--max-size<span class="w"> </span>100MB<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span>
+</code></pre></div>
+<hr />
+<h2 id="next-steps">Next Steps</h2>
+<ul>
+<li><a href="../media-filters/">Learn about media filters</a></li>
+<li><a href="../advanced-usage/">Explore advanced usage</a></li>
+<li><a href="../command-reference/">See full command reference</a></li>
+<li><a href="../troubleshooting/">Troubleshooting</a></li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      Copyright &copy; 2024-2025 kavidu-dilhara
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/kavidu-dilhara/tgdl" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://pypi.org/project/tgdl/" target="_blank" rel="noopener" title="pypi.org" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.8 200.5c-7.7-30.9-22.3-54.2-53.4-54.2h-40.1v47.4c0 36.8-31.2 67.8-66.8 67.8H172.7c-29.2 0-53.4 25-53.4 54.3v101.8c0 29 25.2 46 53.4 54.3 33.8 9.9 66.3 11.7 106.8 0 26.9-7.8 53.4-23.5 53.4-54.3v-40.7H226.2v-13.6h160.2c31.1 0 42.6-21.7 53.4-54.2 11.2-33.5 10.7-65.7 0-108.6M286.2 444.7a20.4 20.4 0 1 1 0-40.7 20.4 20.4 0 1 1 0 40.7M167.8 248.1h106.8c29.7 0 53.4-24.5 53.4-54.3V91.9c0-29-24.4-50.7-53.4-55.6-35.8-5.9-74.7-5.6-106.8.1-45.2 8-53.4 24.7-53.4 55.6v40.7h106.9v13.6h-147c-31.1 0-58.3 18.7-66.8 54.2-9.8 40.7-10.2 66.1 0 108.6 7.6 31.6 25.7 54.2 56.8 54.2H101v-48.8c0-35.3 30.5-66.4 66.8-66.4m-6.6-183.4a20.4 20.4 0 1 1 0 40.8 20.4 20.4 0 1 1 0-40.8"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.tabs", "navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
