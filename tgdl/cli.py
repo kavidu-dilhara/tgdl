@@ -240,9 +240,11 @@ def bots():
 @click.option('--max-size', type=str, help='Maximum file size (e.g., 100MB, 1GB)')
 @click.option('--min-size', type=str, help='Minimum file size (e.g., 1MB, 10KB)')
 @click.option('--limit', type=int, help='Maximum number of files to download')
+@click.option('--min-id', type=int, help='Start from this message ID (inclusive)')
+@click.option('--max-id', type=int, help='Stop at this message ID (inclusive)')
 @click.option('--concurrent', type=int, default=5, help='Number of parallel downloads (default: 5)')
 @click.option('-o', '--output', type=str, default='downloads', help='Output directory (default: downloads)')
-def download(channel, group, bot, photos, videos, audio, documents, max_size, min_size, limit, concurrent, output):
+def download(channel, group, bot, photos, videos, audio, documents, max_size, min_size, limit, min_id, max_id, concurrent, output):
     """
     Download media from a channel, group, or bot chat with filters.
     
@@ -262,6 +264,9 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
       
       # Download first 50 files
       tgdl download -c 1234567890 --limit 50
+      
+      # Download messages from ID 20 to 100
+      tgdl download -c 1234567890 --min-id 20 --max-id 100
       
       # Fast download with 10 parallel connections
       tgdl download -c 1234567890 --concurrent 10
@@ -302,6 +307,9 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
     click.echo(click.style(f"\n📥 Download Settings", fg='cyan', bold=True))
     click.echo(f"  Entity: {entity_type.capitalize()} {entity_id}")
     click.echo(f"  Media types: {', '.join([mt.value for mt in media_types])}")
+    if min_id or max_id:
+        range_str = f"{min_id or 'start'} to {max_id or 'latest'}"
+        click.echo(f"  Message ID range: {range_str}")
     if max_size_bytes:
         click.echo(f"  Max size: {max_size} ({format_bytes(max_size_bytes)})")
     if min_size_bytes:
@@ -334,7 +342,7 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
     
     # Start download with error handling
     try:
-        count = run_async(downloader.download_from_entity(entity_id, limit))
+        count = run_async(downloader.download_from_entity(entity_id, limit, min_id, max_id))
         
         if count > 0:
             click.echo(click.style(f"\n🎉 Download complete! {count} files downloaded.", fg='green', bold=True))

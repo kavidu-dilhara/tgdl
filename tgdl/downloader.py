@@ -127,25 +127,41 @@ class Downloader:
         if not folder.exists():
             return set()
         return set(os.listdir(folder))
+    
+    def _get_downloaded_message_ids(self, folder: Path) -> Set[int]:
+        """Get set of message IDs from already downloaded files."""
+        if not folder.exists():
+            return set()
+        
+        message_ids = set()
+        for filename in os.listdir(folder):
+            # Try to extract message ID from filename
+            # Files are named like: <message_id><ext> or <original_name>
+            # Check if filename starts with a number (message ID)
+            import re
+            match = re.match(r'^(\d+)', filename)
+            if match:
+                message_ids.add(int(match.group(1)))
+        
+        return message_ids
 
     async def _download_single(
-        self, message, folder: Path, semaphore, pbar, downloaded_files: Set[str]
+        self, message, folder: Path, semaphore, pbar, downloaded_message_ids: Set[int]
     ):
         """Download a single media file."""
         try:
-            # Get filename
-            file_name = None
-            if message.file:
-                file_name = message.file.name or f"{message.id}{message.file.ext}"
-
-            # Skip if already downloaded
-            if file_name and file_name in downloaded_files:
+            # Skip if message ID already downloaded
+            if message.id in downloaded_message_ids:
                 pbar.update(1)
                 return None, message.id
 
             # Download with semaphore (allows parallel downloads)
             async with semaphore:
                 file_path = await message.download_media(file=str(folder))
+            
+            # Add to downloaded set after successful download
+            if file_path:
+                downloaded_message_ids.add(message.id)
             
             pbar.update(1)
 
@@ -159,7 +175,7 @@ class Downloader:
             return None, message.id
 
     async def download_from_entity(
-        self, entity_id: int, limit: Optional[int] = None
+        self, entity_id: int, limit: Optional[int] = None, min_msg_id: Optional[int] = None, max_msg_id: Optional[int] = None
     ) -> int:
         """
         Download media from a channel or group.
@@ -167,6 +183,8 @@ class Downloader:
         Args:
             entity_id: Channel or group ID
             limit: Maximum number of files to download (None for all)
+            min_msg_id: Minimum message ID to start from (inclusive)
+            max_msg_id: Maximum message ID to stop at (inclusive)
             
         Returns:
             Number of files successfully downloaded
@@ -212,28 +230,42 @@ class Downloader:
             folder = Path(self.output_dir) / f"entity_{entity_id}"
             folder.mkdir(parents=True, exist_ok=True)
 
-            # Get already downloaded files
-            downloaded_files = self._get_downloaded_files(folder)
-            if downloaded_files:
+            # Get already downloaded message IDs
+            downloaded_message_ids = self._get_downloaded_message_ids(folder)
+            if downloaded_message_ids:
                 click.echo(
                     click.style(
-                        f"Found {len(downloaded_files)} already downloaded files, skipping...",
+                        f"Found {len(downloaded_message_ids)} already downloaded files, will skip...",
                         fg="yellow",
                     )
                 )
 
-            # Get last progress
+            # Get last progress (only if no custom range specified)
             last_message_id = self.config.get_progress(str(entity_id))
-
-            click.echo(f"Fetching messages from entity {entity_id}...")
+            
+            # Determine the starting point
+            if min_msg_id is not None:
+                start_id = min_msg_id - 1  # min_id is exclusive, so subtract 1 to include min_msg_id
+                click.echo(f"Fetching messages from entity {entity_id} (ID range: {min_msg_id} to {max_msg_id or 'latest'})...")
+            else:
+                start_id = last_message_id if last_message_id else 0
+                click.echo(f"Fetching messages from entity {entity_id}...")
 
             # Collect messages with media
             messages_to_download = []
             # Use min_id to get messages AFTER the last downloaded one
             # This way we only fetch NEW messages since last download
             async for message in client.iter_messages(
-                entity, min_id=last_message_id if last_message_id else 0
+                entity, min_id=start_id
             ):
+                # If max_msg_id is specified, stop when we reach it
+                if max_msg_id is not None and message.id > max_msg_id:
+                    continue
+                
+                # If min_msg_id is specified and message is below it, we've gone past the range
+                if min_msg_id is not None and message.id < min_msg_id:
+                    break
+                
                 if self._should_download(message):
                     messages_to_download.append(message)
                     
@@ -258,7 +290,7 @@ class Downloader:
             pbar = tqdm(total=len(messages_to_download), desc="Downloading", unit="file")
 
             tasks = [
-                self._download_single(msg, folder, semaphore, pbar, downloaded_files)
+                self._download_single(msg, folder, semaphore, pbar, downloaded_message_ids)
                 for msg in messages_to_download
             ]
 
