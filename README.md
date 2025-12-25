@@ -393,6 +393,7 @@ This tool is for personal use only. Please respect:
 
 ## 🔗 Links
 
+- [📚 Documentation](https://kavidu-dilhara.github.io/tgdl/) - Complete guide and API reference
 - [PyPI Package](https://pypi.org/project/tgdl/)
 - [GitHub Repository](https://github.com/kavidu-dilhara/tgdl)
 - [Issue Tracker](https://github.com/kavidu-dilhara/tgdl/issues)
