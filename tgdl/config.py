@@ -2,9 +2,12 @@
 
 import os
 import json
+import logging
 from pathlib import Path
 from typing import Optional, Dict, Any
 from tgdl.crypto import CredentialEncryption
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -31,8 +34,8 @@ class Config:
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                pass
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Failed to load config file: {e}")
         return {}
 
     def _save_config(self):
@@ -46,8 +49,9 @@ class Config:
             try:
                 with open(self.progress_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                pass
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Failed to load progress file: {e}")
+        return {}
         return {}
 
     def save_progress(self):
@@ -100,8 +104,8 @@ class Config:
                     del self._config['api_hash']
                 self._save_config()
                 return api_id_int, api_hash
-            except (ValueError, TypeError):
-                pass
+            except (ValueError, TypeError) as e:
+                logger.error(f"Failed to migrate credentials: {e}")
         
         return None, None
 

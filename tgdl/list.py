@@ -1,10 +1,13 @@
 """Module for listing Telegram channels and groups."""
 
 import asyncio
+import logging
 from typing import List, Dict, Any
 import click
 from telethon.tl.types import User
 from tgdl.auth import get_authenticated_client
+
+logger = logging.getLogger(__name__)
 
 
 async def get_channels() -> List[Dict[str, Any]]:
@@ -36,10 +39,11 @@ async def get_channels() -> List[Dict[str, Any]]:
         
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching channels: {e}", fg='red'))
+        logger.exception("Error fetching channels list")
         try:
             await client.disconnect()
-        except Exception:
-            pass
+        except Exception as disconnect_error:
+            logger.debug(f"Error disconnecting client: {disconnect_error}")
     
     return channels
 
@@ -73,10 +77,11 @@ async def get_groups() -> List[Dict[str, Any]]:
         
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching groups: {e}", fg='red'))
+        logger.exception("Error fetching groups list")
         try:
             await client.disconnect()
-        except Exception:
-            pass
+        except Exception as disconnect_error:
+            logger.debug(f"Error disconnecting client: {disconnect_error}")
     
     return groups
 
@@ -111,10 +116,11 @@ async def get_bots() -> List[Dict[str, Any]]:
         
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching bots: {e}", fg='red'))
+        logger.exception("Error fetching bots list")
         try:
             await client.disconnect()
-        except Exception:
-            pass
+        except Exception as disconnect_error:
+            logger.debug(f"Error disconnecting client: {disconnect_error}")
     
     return bots
 

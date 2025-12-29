@@ -1,11 +1,13 @@
 """Main CLI interface for tgdl."""
 
 import asyncio
+import logging
+import os
 import click
 from tgdl import __version__
 from tgdl.auth import login_user, check_auth
 from tgdl.list import get_channels, get_groups, get_bots, display_channels, display_groups, display_bots
-from tgdl.downloader import Downloader, MediaType
+from tgdl.downloader import Downloader, MediaType, DEFAULT_MAX_CONCURRENT, DEFAULT_OUTPUT_DIR
 from tgdl.config import get_config
 from tgdl.utils import format_bytes, require_auth
 
@@ -13,6 +15,19 @@ from tgdl.utils import format_bytes, require_auth
 def run_async(coro):
     """Helper to run async functions."""
     return asyncio.run(coro)
+
+
+def _setup_logging():
+    """Configure logging for the application."""
+    # Get log level from environment or default to WARNING
+    log_level = os.environ.get('TGDL_LOG_LEVEL', 'WARNING').upper()
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.WARNING),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
 
 # Removed _format_size function - now using utils.format_bytes
@@ -43,6 +58,13 @@ def main():
       tgdl download -c 1234567890 -p -v
       tgdl download -g 1234567890 --max-size 100MB
       tgdl download -b 1234567890 -d
+    
+    \b
+    Environment Variables:
+      TGDL_LOG_LEVEL    Set logging level (DEBUG, INFO, WARNING, ERROR)
+    """
+    # Setup logging when CLI starts
+    _setup_logging()
       tgdl download-link https://t.me/c/1234567890/123
     """
     pass
@@ -74,7 +96,8 @@ def login():
                 click.echo(click.style(f"✓ You're already logged in as {me.first_name} (ID: {me.id})", fg='green'))
                 click.echo("\nUse 'tgdl logout' to logout and login with a different account.")
                 return
-        except Exception:
+        except Exception as e:
+            # Failed to get user info, continue with login
             pass
     
     try:
@@ -242,8 +265,8 @@ def bots():
 @click.option('--limit', type=int, help='Maximum number of files to download')
 @click.option('--min-id', type=int, help='Start from this message ID (inclusive)')
 @click.option('--max-id', type=int, help='Stop at this message ID (inclusive)')
-@click.option('--concurrent', type=int, default=5, help='Number of parallel downloads (default: 5)')
-@click.option('-o', '--output', type=str, default='downloads', help='Output directory (default: downloads)')
+@click.option('--concurrent', type=int, default=DEFAULT_MAX_CONCURRENT, help=f'Number of parallel downloads (default: {DEFAULT_MAX_CONCURRENT})')
+@click.option('-o', '--output', type=str, default=DEFAULT_OUTPUT_DIR, help=f'Output directory (default: {DEFAULT_OUTPUT_DIR})')
 def download(channel, group, bot, photos, videos, audio, documents, max_size, min_size, limit, min_id, max_id, concurrent, output):
     """
     Download media from a channel, group, or bot chat with filters.

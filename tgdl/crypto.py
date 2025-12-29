@@ -2,11 +2,14 @@
 
 import os
 import base64
+import logging
 from pathlib import Path
 from typing import Optional, Tuple
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+logger = logging.getLogger(__name__)
 
 
 class CredentialEncryption:
@@ -30,8 +33,9 @@ class CredentialEncryption:
             import socket
             import getpass
             machine_id = f"{socket.gethostname()}-{getpass.getuser()}".encode()
-        except Exception:
+        except Exception as e:
             # Fallback to random if machine ID fails
+            logger.warning(f"Failed to get machine ID, using random: {e}")
             machine_id = os.urandom(32)
         
         # Derive key from machine ID using PBKDF2-HMAC
@@ -50,8 +54,8 @@ class CredentialEncryption:
             try:
                 with open(self.key_file, 'rb') as f:
                     return f.read()
-            except (IOError, OSError):
-                pass
+            except (IOError, OSError) as e:
+                logger.warning(f"Failed to read existing key file: {e}")
         
         # Generate new key
         key = self._generate_key()
@@ -112,8 +116,9 @@ class CredentialEncryption:
             decoded = base64.urlsafe_b64decode(encrypted_data.encode('utf-8'))
             decrypted = cipher.decrypt(decoded)
             return decrypted.decode('utf-8')
-        except Exception:
+        except Exception as e:
             # Decryption failed (corrupted data or wrong key)
+            logger.debug(f"Decryption failed: {type(e).__name__}: {e}")
             return None
     
     def encrypt_credentials(self, api_id: int, api_hash: str) -> Tuple[str, str]:
@@ -148,7 +153,7 @@ class CredentialEncryption:
             
             if decrypted_id and decrypted_hash:
                 return int(decrypted_id), decrypted_hash
-        except (ValueError, TypeError):
-            pass
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to decrypt credentials: {e}")
         
         return None, None

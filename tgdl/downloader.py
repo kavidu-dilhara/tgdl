@@ -3,8 +3,9 @@
 import os
 import re
 import asyncio
+import logging
 from pathlib import Path
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Callable
 from enum import Enum
 
 import click
@@ -15,10 +16,25 @@ from telethon.tl.types import (
     DocumentAttributeVideo,
     DocumentAttributeAudio,
 )
+from telethon.errors import (
+    FloodWaitError,
+    ChannelPrivateError,
+    ChatWriteForbiddenError,
+)
 
 from tgdl.auth import get_authenticated_client
 from tgdl.config import get_config
 from tgdl.utils import format_bytes
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Constants for default configuration values
+DEFAULT_MAX_CONCURRENT = 5
+DEFAULT_OUTPUT_DIR = "downloads"
+PROGRESS_BAR_LENGTH = 30
+PROGRESS_BAR_FILLED_CHAR = "█"
+PROGRESS_BAR_EMPTY_CHAR = "░"
 
 
 class MediaType(Enum):
@@ -35,21 +51,21 @@ class Downloader:
 
     def __init__(
         self,
-        max_concurrent: int = 5,
+        max_concurrent: int = DEFAULT_MAX_CONCURRENT,
         media_types: List[MediaType] = None,
         max_size: Optional[int] = None,
         min_size: Optional[int] = None,
-        output_dir: str = "downloads",
+        output_dir: str = DEFAULT_OUTPUT_DIR,
     ):
         """
         Initialize downloader.
         
         Args:
-            max_concurrent: Number of parallel downloads
+            max_concurrent: Number of parallel downloads (default: 5)
             media_types: List of media types to download
             max_size: Maximum file size in bytes
             min_size: Minimum file size in bytes
-            output_dir: Output directory for downloads
+            output_dir: Output directory for downloads (default: 'downloads')
         """
         self.max_concurrent = max_concurrent
         self.media_types = media_types or [MediaType.ALL]
@@ -129,16 +145,27 @@ class Downloader:
         return set(os.listdir(folder))
     
     def _get_downloaded_message_ids(self, folder: Path) -> Set[int]:
-        """Get set of message IDs from already downloaded files."""
+        """Get set of message IDs from already downloaded files that actually exist."""
         if not folder.exists():
             return set()
         
         message_ids = set()
         for filename in os.listdir(folder):
+            # Verify file actually exists (not just in directory listing)
+            file_path = folder / filename
+            if not file_path.is_file():
+                continue
+            
+            # Verify file has non-zero size (not corrupted/incomplete)
+            try:
+                if file_path.stat().st_size == 0:
+                    continue
+            except OSError:
+                continue
+            
             # Try to extract message ID from filename
             # Files are named like: <message_id><ext> or <original_name>
             # Check if filename starts with a number (message ID)
-            import re
             match = re.match(r'^(\d+)', filename)
             if match:
                 message_ids.add(int(match.group(1)))
@@ -209,8 +236,19 @@ class Downloader:
                 if not entity:
                     try:
                         entity = await client.get_entity(entity_id)
-                    except Exception:
+                    except ChannelPrivateError:
+                        click.echo(click.style(f"\n✗ Entity {entity_id} is private or you don't have access", fg="red"))
+                        logger.error(f"ChannelPrivateError: Cannot access entity {entity_id}")
+                        await client.disconnect()
+                        return 0
+                    except FloodWaitError as e:
+                        click.echo(click.style(f"\n✗ Rate limited by Telegram. Wait {e.seconds} seconds", fg="red"))
+                        logger.warning(f"FloodWaitError: Rate limited for {e.seconds} seconds")
+                        await client.disconnect()
+                        return 0
+                    except Exception as e:
                         click.echo(click.style(f"\n✗ Entity {entity_id} not found", fg="red"))
+                        logger.error(f"Error getting entity {entity_id}: {type(e).__name__}: {e}")
                         click.echo("\n💡 Make sure:")
                         click.echo(f"  1. You have access to this entity")
                         click.echo(f"  2. You've interacted with it before")
@@ -315,12 +353,29 @@ class Downloader:
             await client.disconnect()
             return successful
 
-        except Exception as e:
-            click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
+        except KeyboardInterrupt:
+            click.echo(click.style("\n\n⚠ Download cancelled by user.", fg="yellow"))
+            logger.info("Download cancelled by user (KeyboardInterrupt)")
             try:
                 await client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error disconnecting client: {e}")
+            return 0
+        except FloodWaitError as e:
+            click.echo(click.style(f"✗ Rate limited by Telegram. Wait {e.seconds} seconds", fg="red"))
+            logger.warning(f"FloodWaitError during download: {e.seconds} seconds")
+            try:
+                await client.disconnect()
+            except Exception as e:
+                logger.debug(f"Error disconnecting client: {e}")
+            return 0
+        except Exception as e:
+            click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
+            logger.exception(f"Unexpected error during download from entity {entity_id}")
+            try:
+                await client.disconnect()
+            except Exception as disconnect_error:
+                logger.debug(f"Error disconnecting client: {disconnect_error}")
             return 0
 
     async def download_from_link(self, link: str) -> bool:
@@ -385,21 +440,9 @@ class Downloader:
             click.echo(f"Size: {format_bytes(file_size)}")
             click.echo()
 
-            # Progress callback with better formatting
-            async def progress_callback(current, total):
-                percent = (current / total) * 100 if total > 0 else 0
-                bar_length = 30
-                filled = int(bar_length * current / total) if total > 0 else 0
-                bar = "█" * filled + "░" * (bar_length - filled)
-                
-                print(
-                    f"\r  [{bar}] {percent:.1f}% | {format_bytes(current)}/{format_bytes(total)}",
-                    end="",
-                    flush=True,
-                )
-
+            # Use shared progress callback
             file_path = await message.download_media(
-                file=str(folder), progress_callback=progress_callback
+                file=str(folder), progress_callback=self._create_progress_callback()
             )
 
             print()  # New line after progress
@@ -413,13 +456,51 @@ class Downloader:
                 await client.disconnect()
                 return False
 
-        except Exception as e:
-            click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
+        except KeyboardInterrupt:
+            click.echo(click.style("\n\n⚠ Download cancelled by user.", fg="yellow"))
+            logger.info("Link download cancelled by user (KeyboardInterrupt)")
             try:
                 await client.disconnect()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Error disconnecting client: {e}")
             return False
+        except FloodWaitError as e:
+            click.echo(click.style(f"\n✗ Rate limited by Telegram. Wait {e.seconds} seconds", fg="red"))
+            logger.warning(f"FloodWaitError during link download: {e.seconds} seconds")
+            try:
+                await client.disconnect()
+            except Exception as e:
+                logger.debug(f"Error disconnecting client: {e}")
+            return False
+        except Exception as e:
+            click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
+            logger.exception(f"Unexpected error during download from link: {link}")
+            try:
+                await client.disconnect()
+            except Exception as disconnect_error:
+                logger.debug(f"Error disconnecting client: {disconnect_error}")
+            return False
+
+    def _create_progress_callback(self) -> Callable:
+        """Create a reusable progress callback for download progress bars."""
+        async def progress_callback(current: int, total: int) -> None:
+            """Display download progress with a progress bar.
+            
+            Args:
+                current: Current downloaded bytes
+                total: Total file size in bytes
+            """
+            percent = (current / total) * 100 if total > 0 else 0
+            filled = int(PROGRESS_BAR_LENGTH * current / total) if total > 0 else 0
+            bar = PROGRESS_BAR_FILLED_CHAR * filled + PROGRESS_BAR_EMPTY_CHAR * (PROGRESS_BAR_LENGTH - filled)
+            
+            print(
+                f"\r  [{bar}] {percent:.1f}% | {format_bytes(current)}/{format_bytes(total)}",
+                end="",
+                flush=True,
+            )
+        
+        return progress_callback
 
     def _parse_link(self, link: str):
         """Parse Telegram message link."""

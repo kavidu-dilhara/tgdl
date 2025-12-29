@@ -8,7 +8,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="tgdl",
-    version="1.1.4",
+    version="1.1.5",
     author="kavidu-dilhara",
     author_email="contact@kavidudilhara.eu.org",
     description="A high-performance CLI tool for downloading media from Telegram channels, groups, and messages",
@@ -41,10 +41,10 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "telethon>=1.42.0",
-        "click>=8.3.0",
+        "click>=8.3.1",
         "tqdm>=4.67.1",
         "aiofiles>=25.1.0",
-        "cryptography>=43.0.0",
+        "cryptography>=46.0.3",
     ],
     extras_require={
         "dev": [
