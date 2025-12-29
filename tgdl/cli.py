@@ -58,6 +58,7 @@ def main():
       tgdl download -c 1234567890 -p -v
       tgdl download -g 1234567890 --max-size 100MB
       tgdl download -b 1234567890 -d
+      tgdl download-link https://t.me/c/1234567890/123
     
     \b
     Environment Variables:
@@ -65,9 +66,6 @@ def main():
     """
     # Setup logging when CLI starts
     _setup_logging()
-      tgdl download-link https://t.me/c/1234567890/123
-    """
-    pass
 
 
 @main.command()
