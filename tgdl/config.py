@@ -4,7 +4,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Iterable, Set
 from tgdl.crypto import CredentialEncryption
 
 logger = logging.getLogger(__name__)
@@ -59,6 +59,24 @@ class Config:
         with open(self.progress_file, 'w', encoding='utf-8') as f:
             json.dump(self._progress, f, indent=2)
 
+    def _coerce_message_id(self, value: Any) -> int:
+        """Convert a value to a valid message ID."""
+        try:
+            message_id = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return message_id if message_id > 0 else 0
+
+    def _coerce_message_ids(self, values: Any) -> Set[int]:
+        """Convert a list of values to a set of valid message IDs."""
+        message_ids: Set[int] = set()
+        if isinstance(values, (list, tuple, set)):
+            for value in values:
+                message_id = self._coerce_message_id(value)
+                if message_id:
+                    message_ids.add(message_id)
+        return message_ids
+
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value."""
         return self._config.get(key, default)
@@ -70,11 +88,60 @@ class Config:
 
     def get_progress(self, entity_id: str) -> int:
         """Get last downloaded message ID for entity."""
-        return self._progress.get(str(entity_id), 0)
+        entry = self._progress.get(str(entity_id), 0)
+        if isinstance(entry, dict):
+            return self._coerce_message_id(entry.get("last_message_id", 0))
+        return self._coerce_message_id(entry)
+
+    def get_downloaded_ids(self, entity_id: str) -> Set[int]:
+        """Get downloaded message IDs tracked in the progress file."""
+        entry = self._progress.get(str(entity_id))
+        if isinstance(entry, dict):
+            return self._coerce_message_ids(entry.get("downloaded_ids", []))
+        if isinstance(entry, list):
+            return self._coerce_message_ids(entry)
+        return set()
 
     def set_progress(self, entity_id: str, message_id: int):
         """Set last downloaded message ID for entity."""
-        self._progress[str(entity_id)] = message_id
+        key = str(entity_id)
+        entry = self._progress.get(key)
+        if isinstance(entry, dict):
+            entry["last_message_id"] = message_id
+            self._progress[key] = entry
+        elif isinstance(entry, list):
+            self._progress[key] = {
+                "last_message_id": message_id,
+                "downloaded_ids": entry,
+            }
+        else:
+            self._progress[key] = message_id
+        self.save_progress()
+
+    def add_downloaded_ids(self, entity_id: str, message_ids: Iterable[int]):
+        """Track additional downloaded message IDs for an entity."""
+        ids_to_add = self._coerce_message_ids(message_ids)
+        if not ids_to_add:
+            return
+
+        key = str(entity_id)
+        entry = self._progress.get(key)
+        last_message_id = 0
+
+        if isinstance(entry, dict):
+            downloaded_ids = self._coerce_message_ids(entry.get("downloaded_ids", []))
+            last_message_id = self._coerce_message_id(entry.get("last_message_id", 0))
+        elif isinstance(entry, list):
+            downloaded_ids = self._coerce_message_ids(entry)
+        else:
+            downloaded_ids = set()
+            last_message_id = self._coerce_message_id(entry)
+
+        downloaded_ids.update(ids_to_add)
+        self._progress[key] = {
+            "last_message_id": last_message_id,
+            "downloaded_ids": sorted(downloaded_ids),
+        }
         self.save_progress()
 
     def get_api_credentials(self) -> tuple[Optional[int], Optional[str]]:

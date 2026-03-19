@@ -175,6 +175,17 @@ cp ~/.tgdl/tgdl.session.backup ~/.tgdl/tgdl.session
 }
 ```
 
+**Optional extended structure (used for skip tracking):**
+```json
+{
+  "entity_id": {
+    "last_message_id": 12345,
+    "downloaded_ids": [10001, 10002, 10003]
+  }
+}
+```
+When `downloaded_ids` is present, tgdl will skip those message IDs even when scanning older ranges.
+
 **How it works:**
 
 1. **First download:**

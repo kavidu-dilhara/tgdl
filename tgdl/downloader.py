@@ -270,6 +270,9 @@ class Downloader:
 
             # Get already downloaded message IDs
             downloaded_message_ids = self._get_downloaded_message_ids(folder)
+            progress_downloaded_ids = self.config.get_downloaded_ids(str(entity_id))
+            if progress_downloaded_ids:
+                downloaded_message_ids.update(progress_downloaded_ids)
             if downloaded_message_ids:
                 click.echo(
                     click.style(
@@ -334,6 +337,14 @@ class Downloader:
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
             pbar.close()
+
+            downloaded_ids = {
+                result[1]
+                for result in results
+                if not isinstance(result, Exception) and result[0] is not None
+            }
+            if downloaded_ids:
+                self.config.add_downloaded_ids(str(entity_id), downloaded_ids)
 
             # Save progress
             if messages_to_download:
