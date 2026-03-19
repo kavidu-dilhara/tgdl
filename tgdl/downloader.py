@@ -175,7 +175,11 @@ class Downloader:
     async def _download_single(
         self, message, folder: Path, semaphore, pbar, downloaded_message_ids: Set[int]
     ):
-        """Download a single media file."""
+        """Download a single media file.
+
+        Returns:
+            Tuple of (file_path, message_id) where file_path is None on failure.
+        """
         try:
             # Skip if message ID already downloaded
             if message.id in downloaded_message_ids:

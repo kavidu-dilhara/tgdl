@@ -61,8 +61,7 @@ class Config:
 
     def _coerce_message_id(self, value: Any) -> int:
         """Convert a value to a valid message ID."""
-        normalized_value = str(value) if value is not None else None
-        should_warn = normalized_value not in (None, "", "0")
+        should_warn = (str(value) if value is not None else None) not in (None, "", "0")
         try:
             message_id = int(value)
         except (TypeError, ValueError):
@@ -127,7 +126,10 @@ class Config:
         self.save_progress()
 
     def add_downloaded_ids(self, entity_id: Union[str, int], message_ids: Iterable[int]):
-        """Track additional downloaded message IDs for an entity."""
+        """Track additional downloaded message IDs for an entity.
+
+        Prefer batching IDs when possible to minimize progress.json writes.
+        """
         ids_to_add = self._coerce_message_ids(message_ids)
         if not ids_to_add:
             return
