@@ -61,7 +61,8 @@ class Config:
 
     def _coerce_message_id(self, value: Any) -> int:
         """Convert a value to a valid message ID."""
-        should_warn = value not in (None, "", 0, "0")
+        normalized_value = str(value) if value is not None else None
+        should_warn = normalized_value not in (None, "", "0")
         try:
             message_id = int(value)
         except (TypeError, ValueError):

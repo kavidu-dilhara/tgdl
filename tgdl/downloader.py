@@ -342,7 +342,9 @@ class Downloader:
             downloaded_ids = set()
             for result in results:
                 if not isinstance(result, tuple) or len(result) != 2:
-                    logger.debug("Unexpected download result: %r", result)
+                    logger.debug(
+                        "Expected (file_path, message_id) tuple, got: %r", result
+                    )
                     continue
                 file_path, message_id = result
                 if file_path is None:
