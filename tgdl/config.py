@@ -61,14 +61,15 @@ class Config:
 
     def _coerce_message_id(self, value: Any) -> int:
         """Convert a value to a valid message ID."""
+        should_warn = value not in (None, "", 0, "0")
         try:
             message_id = int(value)
         except (TypeError, ValueError):
-            if value not in (None, "", 0, "0"):
+            if should_warn:
                 logger.warning("Invalid message ID in progress data: %r", value)
             return 0
         if message_id <= 0:
-            if value not in (None, "", 0, "0"):
+            if should_warn:
                 logger.warning("Non-positive message ID in progress data: %r", value)
             return 0
         return message_id

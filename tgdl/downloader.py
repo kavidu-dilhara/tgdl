@@ -338,6 +338,7 @@ class Downloader:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             pbar.close()
 
+            # Download tasks return (file_path, message_id)
             downloaded_ids = set()
             for result in results:
                 if not isinstance(result, tuple) or len(result) != 2:
