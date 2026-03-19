@@ -64,8 +64,14 @@ class Config:
         try:
             message_id = int(value)
         except (TypeError, ValueError):
+            if value not in (None, "", 0, "0"):
+                logger.warning("Invalid message ID in progress data: %r", value)
             return 0
-        return message_id if message_id > 0 else 0
+        if message_id <= 0:
+            if value not in (None, "", 0, "0"):
+                logger.warning("Non-positive message ID in progress data: %r", value)
+            return 0
+        return message_id
 
     def _coerce_message_ids(self, values: Any) -> Set[int]:
         """Convert a list of values to a set of valid message IDs."""
