@@ -4,7 +4,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any, Iterable, Set
+from typing import Optional, Dict, Any, Iterable, Set, Union
 from tgdl.crypto import CredentialEncryption
 
 logger = logging.getLogger(__name__)
@@ -86,14 +86,14 @@ class Config:
         self._config[key] = value
         self._save_config()
 
-    def get_progress(self, entity_id: str) -> int:
+    def get_progress(self, entity_id: Union[str, int]) -> int:
         """Get last downloaded message ID for entity."""
         entry = self._progress.get(str(entity_id), 0)
         if isinstance(entry, dict):
             return self._coerce_message_id(entry.get("last_message_id", 0))
         return self._coerce_message_id(entry)
 
-    def get_downloaded_ids(self, entity_id: str) -> Set[int]:
+    def get_downloaded_ids(self, entity_id: Union[str, int]) -> Set[int]:
         """Get downloaded message IDs tracked in the progress file."""
         entry = self._progress.get(str(entity_id))
         if isinstance(entry, dict):
@@ -102,7 +102,7 @@ class Config:
             return self._coerce_message_ids(entry)
         return set()
 
-    def set_progress(self, entity_id: str, message_id: int):
+    def set_progress(self, entity_id: Union[str, int], message_id: int):
         """Set last downloaded message ID for entity."""
         key = str(entity_id)
         entry = self._progress.get(key)
@@ -118,7 +118,7 @@ class Config:
             self._progress[key] = message_id
         self.save_progress()
 
-    def add_downloaded_ids(self, entity_id: str, message_ids: Iterable[int]):
+    def add_downloaded_ids(self, entity_id: Union[str, int], message_ids: Iterable[int]):
         """Track additional downloaded message IDs for an entity."""
         ids_to_add = self._coerce_message_ids(message_ids)
         if not ids_to_add:

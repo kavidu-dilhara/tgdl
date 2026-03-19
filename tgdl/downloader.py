@@ -338,11 +338,14 @@ class Downloader:
             results = await asyncio.gather(*tasks, return_exceptions=True)
             pbar.close()
 
-            downloaded_ids = {
-                result[1]
-                for result in results
-                if isinstance(result, tuple) and len(result) == 2 and result[0] is not None
-            }
+            downloaded_ids = set()
+            for result in results:
+                if not isinstance(result, tuple) or len(result) != 2:
+                    continue
+                file_path, message_id = result
+                if file_path is None:
+                    continue
+                downloaded_ids.add(message_id)
             if downloaded_ids:
                 self.config.add_downloaded_ids(str(entity_id), downloaded_ids)
 
