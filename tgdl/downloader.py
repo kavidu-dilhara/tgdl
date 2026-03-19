@@ -341,7 +341,7 @@ class Downloader:
             downloaded_ids = {
                 result[1]
                 for result in results
-                if not isinstance(result, Exception) and result[0] is not None
+                if isinstance(result, tuple) and len(result) == 2 and result[0] is not None
             }
             if downloaded_ids:
                 self.config.add_downloaded_ids(str(entity_id), downloaded_ids)

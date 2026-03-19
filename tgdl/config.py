@@ -140,7 +140,7 @@ class Config:
         downloaded_ids.update(ids_to_add)
         self._progress[key] = {
             "last_message_id": last_message_id,
-            "downloaded_ids": sorted(downloaded_ids),
+            "downloaded_ids": list(downloaded_ids),
         }
         self.save_progress()
 
