@@ -175,7 +175,11 @@ class Downloader:
     async def _download_single(
         self, message, folder: Path, semaphore, pbar, downloaded_message_ids: Set[int]
     ):
-        """Download a single media file."""
+        """Download a single media file.
+
+        Returns:
+            Tuple of (file_path, message_id) where file_path is None on failure.
+        """
         try:
             # Skip if message ID already downloaded
             if message.id in downloaded_message_ids:
@@ -270,6 +274,9 @@ class Downloader:
 
             # Get already downloaded message IDs
             downloaded_message_ids = self._get_downloaded_message_ids(folder)
+            progress_downloaded_ids = self.config.get_downloaded_ids(str(entity_id))
+            if progress_downloaded_ids:
+                downloaded_message_ids.update(progress_downloaded_ids)
             if downloaded_message_ids:
                 click.echo(
                     click.style(
@@ -334,6 +341,21 @@ class Downloader:
 
             results = await asyncio.gather(*tasks, return_exceptions=True)
             pbar.close()
+
+            # Download tasks return (file_path, message_id)
+            downloaded_ids = set()
+            for result in results:
+                if not isinstance(result, tuple) or len(result) != 2:
+                    logger.debug(
+                        "Expected (file_path, message_id) tuple, got: %r", result
+                    )
+                    continue
+                file_path, message_id = result
+                if file_path is None:
+                    continue
+                downloaded_ids.add(message_id)
+            if downloaded_ids:
+                self.config.add_downloaded_ids(str(entity_id), downloaded_ids)
 
             # Save progress
             if messages_to_download:
