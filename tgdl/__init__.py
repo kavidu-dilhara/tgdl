@@ -1,6 +1,6 @@
 """tgdl - High-performance Telegram media downloader CLI tool."""
 
-__version__ = "1.1.6"
+__version__ = "1.2.0"
 __author__ = "kavidu-dilhara"
 __license__ = "MIT"
 
