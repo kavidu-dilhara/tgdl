@@ -257,6 +257,48 @@ While downloading:
 - **Ctrl+C** - Cancel download (can resume later)
 - Progress is automatically saved
 
+## Resume Support
+
+### Automatic Resume
+
+Interrupted downloads are automatically resumed:
+
+```bash
+# Start download
+tgdl download -c 1234567890
+
+# If interrupted with Ctrl+C:
+# Files already downloaded are skipped
+# Downloads continue from where it stopped
+
+# Just run the same command again
+tgdl download -c 1234567890
+```
+
+### How It Works
+
+1. **Files are named with message ID:** `12345.jpg`, `12346.mp4`
+2. **tgdl remembers progress:** Stored in `~/.tgdl/progress.json`
+3. **Next run picks up automatically:** Downloads new messages only
+4. **Partial files are tracked:** `.tgdl_partial` files are excluded from dedup
+
+```
+First run: Download messages 1-100
+  ✓ Completes 50 files
+  ✗ Interrupted
+  → progress.json saved
+
+Second run: Same command
+  ✓ Skips completed 50 files
+  ✓ Resumes from message 51
+  ✓ Downloads remaining files
+```
+
+!!! info "Automatic Deduplication"
+    Files with identical content (same hash) are automatically detected and not re-downloaded, even if interrupted and resumed.
+
+---
+
 ## Tips for Beginners
 
 !!! tip "Start Small"

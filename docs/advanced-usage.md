@@ -2,6 +2,156 @@
 
 Master advanced features and techniques for power users.
 
+## Built-in Advanced Features
+
+tgdl includes several powerful features automatically enabled:
+
+### 🔄 Automatic Rate Limit Handling (FloodWait)
+
+**What it does:**
+- Automatically detects when Telegram rate-limits your downloads
+- Waits the required time before resuming (up to 5 minutes max)
+- Shows countdown so you know what's happening
+- Continues automatically after the wait
+
+**Example:**
+```
+⏳ Rate limited by Telegram. Auto-waiting 45s...
+  Resuming in 45s...
+  Resuming in 44s...
+  ...
+  Resuming in 1s...
+  Resuming now...
+```
+
+**When it happens:**
+- Making too many requests too quickly
+- Can occur with high concurrent values (20+)
+- Normal and recoverable - no action needed
+
+**How to prevent:**
+```bash
+# Reduce concurrent downloads if frequently rate-limited
+tgdl download -c 1234567890 --concurrent 5  # Instead of 20
+```
+
+---
+
+### 🔗 Connection Pooling
+
+**What it does:**
+- Reuses single Telegram connection for all downloads
+- Reduces connection overhead
+- Improves speed for many small files
+- Automatically handled
+
+**Benefits:**
+- Faster multi-file downloads
+- Lower memory usage
+- More stable connection
+- No configuration needed
+
+---
+
+### 🔐 Hash-Based Deduplication
+
+**What it does:**
+- Computes MD5 hash of each downloaded file
+- Detects identical files (even if renamed)
+- Prevents duplicate downloads automatically
+- Works even after resume
+
+**How it works:**
+1. First file downloaded: `12345.jpg` → hash stored
+2. Later, identical file in different message: `12346.jpg`
+3. Hash matches existing file: automatically skipped
+4. Shows: `⊘ Duplicate of 12345.jpg — removing copy.`
+
+**Benefits:**
+- Saves bandwidth
+- Saves storage
+- Automatic duplicate detection
+- Works across interruptions
+
+**Example:**
+```bash
+# Download initially
+tgdl download -c 1234567890 --limit 100
+
+# Later, download more
+tgdl download -c 1234567890  # Skips exact duplicates automatically
+```
+
+---
+
+### ♻️ Automatic Retry with Backoff
+
+**What it does:**
+- Automatically retries failed downloads
+- Uses exponential backoff (2 seconds minimum)
+- Up to 3 attempts per file
+- Continues with next file on failure
+
+**How it works:**
+```
+File download fails
+  ↓ (Attempt 1 of 3)
+Wait 2 seconds
+  ↓ (Retry)
+Fails again
+  ↓ (Attempt 2 of 3)
+Wait 4 seconds (2 × 2)
+  ↓ (Retry)
+Fails again
+  ↓ (Attempt 3 of 3)
+Wait 8 seconds (4 × 2)
+  ↓ (Final retry)
+Fails → Move to next file
+```
+
+**When it triggers:**
+- Network timeout
+- Connection interrupted
+- Temporary server error
+- File temporarily unavailable
+
+**Benefits:**
+- Handles temporary network issues
+- Recovers from transient errors
+- No user intervention needed
+- Continues download automatically
+
+---
+
+### 📝 Partial File Resume
+
+**What it does:**
+- Automatically resumes incomplete downloads
+- Detects `.tgdl_partial` files
+- Continues from last byte (not from start)
+- Excluded from deduplication
+
+**How it works:**
+```
+Download interrupted at 25% → 12345.tgdl_partial (25MB of 100MB)
+  ↓
+Run same command again
+  ↓
+Automatically resumes from 25%
+  ↓
+Downloads remaining 75MB
+  ↓
+Final file: 12345.jpg (complete 100MB)
+```
+
+**Benefits:**
+- Saves time on re-download
+- Saves bandwidth
+- Works with large files
+- Automatic and transparent
+
+---
+
 ## Message ID Ranges
 
 ### Overview

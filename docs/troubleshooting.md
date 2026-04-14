@@ -275,14 +275,39 @@ SessionPasswordNeededError
 ⚠ Download cancelled by user.
 ```
 
-**Solution:**
+**What happens:**
 
-Run the same command again - tgdl will resume:
+tgdl saves progress automatically. When you run the command again:
+- ✅ Skips already downloaded files
+- ✅ Resumes partial downloads from where they stopped
+- ✅ Only downloads new/missing files
+- ✅ No re-downloading necessary
+
+**Example:**
+
 ```bash
-tgdl download -c 1234567890
+# Start download
+$ tgdl download -c 1234567890
+Downloading 100 files...
+Downloaded 25 files...
+^C
+⚠ Download cancelled by user.
+
+# Wait 1 hour...
+
+# Run same command - tgdl remembers progress
+$ tgdl download -c 1234567890
+  Using 25 already downloaded files
+  Resuming from file 26...
+Downloading from file 26 of 100...
+Downloaded 75 more files...
 ```
 
-Already downloaded files are automatically skipped.
+**Files saved:**
+- `.tgdl_partial` files: Incomplete downloads (auto-detected and resumed)
+- Completed files: Marked as complete and skipped
+
+**Just run the same command again** - no need for special flags or recovery procedures!
 
 ### Slow download speed
 
@@ -318,18 +343,47 @@ Already downloaded files are automatically skipped.
 TimeoutError: Connection timed out
 ```
 
-**Solutions:**
+**Automatic handling in v1.2.0+:**
+
+tgdl automatically retries transient network errors! When a timeout occurs:
+- Automatically retries up to 3 times
+- Uses exponential backoff (2s, 4s, 8s waits)
+- Continues to next file if all retries fail
+- Downloads continue automatically
+
+**What you'll see:**
+
+```
+Downloading file1.jpg...
+⚠ Download failed, retrying... (Attempt 1/3)
+  Waiting 2 seconds...
+✓ Downloaded file1.jpg (succeeded on retry)
+
+Downloading file2.jpg...
+⚠ Download failed, retrying... (Attempt 1/3)
+⚠ Download failed, retrying... (Attempt 2/3)
+  Waiting 4 seconds...
+✓ Downloaded file2.jpg (succeeded on 2nd retry)
+```
+
+**If all retries fail:**
+- File is skipped
+- Download continues with next file
+- Failed files can be retried later by running command again
+
+**Manual solutions (if auto-retry insufficient):**
 
 1. **Check internet connection:**
    ```bash
    ping telegram.org
    ```
 
-2. **Retry:**
+2. **Retry the download:**
    ```bash
    tgdl download -c 1234567890
    ```
-   - Already downloaded files will be skipped
+   - Auto-retries failed files
+   - Already downloaded files skipped
 
 3. **Reduce concurrent downloads:**
    ```bash
@@ -340,64 +394,113 @@ TimeoutError: Connection timed out
    - Telegram may be blocked
    - Try VPN if in restricted region
 
-### FloodWaitError
+### Rate Limited by Telegram (FloodWaitError)
 
-**Symptom:**
+**What happens:**
+tgdl automatically handles rate limiting for you! When Telegram limits requests, tgdl will:
+- Detect the rate limit
+- Show a countdown timer
+- Automatically wait
+- Resume downloading
+
+**Example output:**
 ```
-FloodWaitError: A wait of 300 seconds is required
+⏳ Rate limited by Telegram. Auto-waiting 45s...
+  Resuming in 45s...
+  Resuming in 44s...
+  Resuming in 43s...
+  ...
+  Resuming in 1s...
+  Resuming now...
 ```
 
-**Cause:** Too many requests to Telegram
+**What you need to do:** Just let it run! No action needed.
 
-**Solutions:**
+**When it occurs:**
+- Many concurrent downloads (20+)
+- Downloading rapidly from multiple channels
+- Downloading many large files
+- Normal and expected behavior
 
-1. **Wait the specified time:**
+**To reduce rate limiting:**
+
+1. **Lower concurrent downloads:**
    ```bash
-   # Wait 300 seconds (5 minutes)
-   sleep 300
-   tgdl download -c 1234567890
+   # Default is 20, try 5 for slow speed
+   tgdl download -c 1234567890 --concurrent 5
    ```
 
-2. **Reduce concurrent downloads:**
+2. **Add delays in scripts:**
    ```bash
-   tgdl download -c 1234567890 --concurrent 2
+   #!/bin/bash
+   for channel in 123 456 789; do
+     tgdl download -c "$channel"
+     sleep 60  # Wait 1 minute between channels
+   done
    ```
 
-3. **Download in smaller batches:**
+3. **Download in batches:**
    ```bash
-   # Use limit to control batch size
-   tgdl download -c 1234567890 --limit 50
-   # Wait between batches
-   sleep 300
-   tgdl download -c 1234567890 --limit 50
+   # First 100
+   tgdl download -c 1234567890 --limit 100
+   
+   # After auto-wait completes, download next 100
+   tgdl download -c 1234567890 --limit 100 --min-id 100
    ```
 
-4. **Avoid rapid repeated requests:**
-   - Don't run multiple tgdl instances
-   - Add delays in scripts
+**Note:** The automatic waiting in v1.2.0+ means you rarely need to do anything - just let tgdl handle it!
 
 ### Duplicate downloads
 
-**Symptom:**
-Files being re-downloaded despite "skipping" message
+**In v1.2.0+:** This is automatically prevented by hash-based deduplication!
 
-**Solution:**
+**How it works:**
+- Each downloaded file gets an MD5 hash
+- If the same file appears in multiple messages, tgdl recognizes it
+- Duplicate is automatically skipped
+- Shows: `⊘ Duplicate of original_name.jpg — removing copy.`
 
-This should be fixed in version 1.1.4+. If you're experiencing this:
+**Example:**
 
-1. **Update tgdl:**
+```bash
+# Download from channel (gets image: photo123.jpg)
+$ tgdl download -c 1234567890 --limit 10
+✓ Downloaded photo123.jpg (2.5MB)
+
+# Later, same image appears in different message (as photo456.jpg)
+$ tgdl download -c 1234567890 --limit 20
+Using 10 already downloaded files
+⊘ Duplicate of photo123.jpg — removing copy. (was named photo456.jpg)
+
+# Only 10 NEW files downloaded (not 20)
+```
+
+**Benefits:**
+- Saves bandwidth
+- Saves disk space
+- Works across interruptions and resume
+- Transparent and automatic
+
+**Verifying deduplication:**
+```bash
+# Check for duplicate removals in output
+$ tgdl download -c 1234567890
+...
+⊘ Duplicate of file1.jpg — removing copy.
+⊘ Duplicate of file2.jpg — removing copy.
+...
+```
+
+If this was happening in older versions:
+1. Update tgdl:
    ```bash
    pip install --upgrade tgdl
    ```
 
-2. **Check version:**
+2. Check version is 1.2.0+:
    ```bash
-   pip show tgdl
+   pip show tgdl | grep Version
    ```
-
-3. **If issue persists:**
-   - Report as bug on GitHub
-   - Include: tgdl version, command used, output
 
 ---
 

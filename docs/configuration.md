@@ -99,6 +99,50 @@ cp ~/.tgdl/config.json ~/.tgdl/config.json.backup
 chmod 600 ~/.tgdl/.key
 ```
 
+---
+
+## Environment Variables
+
+### Logging Configuration
+
+**Variable:** `TGDL_LOG_LEVEL`
+
+**Purpose:** Control logging verbosity for debugging
+
+**Valid Values:**
+- `DEBUG` - Detailed debugging information
+- `INFO` - General information
+- `WARNING` - Warning messages only (default)
+- `ERROR` - Only errors
+
+**Usage:**
+
+```bash
+# Linux/macOS
+export TGDL_LOG_LEVEL=DEBUG
+tgdl download -c 1234567890
+
+# Windows PowerShell
+$env:TGDL_LOG_LEVEL="DEBUG"
+tgdl download -c 1234567890
+
+# Windows CMD
+set TGDL_LOG_LEVEL=DEBUG
+tgdl download -c 1234567890
+```
+
+**Example Output (DEBUG level):**
+```
+2026-04-14 10:30:45 - tgdl.downloader - DEBUG - Attempting download for message 12345
+2026-04-14 10:30:46 - tgdl.downloader - INFO - Successfully downloaded: 12345.jpg
+2026-04-14 10:30:47 - tgdl.downloader - DEBUG - Hash computed: 5d41402abc4b2a76b9719d911017c592
+```
+
+**Debugging Tips:**
+- Use `DEBUG` when troubleshooting download issues
+- Use `WARNING` (default) for normal operations
+- Output is printed to console in real-time
+
 **Do NOT:**
 - Share this file
 - Commit to version control
