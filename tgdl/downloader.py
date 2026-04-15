@@ -4,6 +4,7 @@ import os
 import re
 import asyncio
 import logging
+import mimetypes
 from pathlib import Path
 from typing import Optional, List, Set, Callable
 from enum import Enum
@@ -20,6 +21,7 @@ from telethon.errors import (
     FloodWaitError,
     ChannelPrivateError,
     ChatWriteForbiddenError,
+    FileReferenceExpiredError,
 )
 
 from tgdl.auth import get_authenticated_client
@@ -173,7 +175,7 @@ class Downloader:
         return message_ids
 
     async def _download_single(
-        self, message, folder: Path, semaphore, pbar, downloaded_message_ids: Set[int]
+        self, message, folder: Path, semaphore, pbar, downloaded_message_ids: Set[int], client
     ):
         """Download a single media file."""
         try:
@@ -184,7 +186,28 @@ class Downloader:
 
             # Download with semaphore (allows parallel downloads)
             async with semaphore:
-                file_path = await message.download_media(file=str(folder))
+                # Build deterministic filename using message ID + extension
+                ext = ""
+                if message.file and message.file.name:
+                    ext = Path(message.file.name).suffix
+                elif message.file and message.file.mime_type:
+                    ext = mimetypes.guess_extension(message.file.mime_type) or ""
+                
+                dest = str(folder / f"{message.id}{ext}")
+                
+                try:
+                    file_path = await message.download_media(file=dest)
+                except FileReferenceExpiredError:
+                    # Re-fetch message to get fresh file reference
+                    logger.info(f"File reference expired for msg {message.id}, re-fetching...")
+                    try:
+                        fresh_message = await client.get_messages(message.chat_id, ids=message.id)
+                        if not fresh_message:
+                            raise Exception(f"Message {message.id} no longer exists")
+                        file_path = await fresh_message.download_media(file=dest)
+                    except Exception as refetch_error:
+                        logger.error(f"Failed to re-fetch and download msg {message.id}: {refetch_error}")
+                        raise refetch_error
             
             # Add to downloaded set after successful download
             if file_path:
@@ -328,7 +351,7 @@ class Downloader:
             pbar = tqdm(total=len(messages_to_download), desc="Downloading", unit="file")
 
             tasks = [
-                self._download_single(msg, folder, semaphore, pbar, downloaded_message_ids)
+                self._download_single(msg, folder, semaphore, pbar, downloaded_message_ids, client)
                 for msg in messages_to_download
             ]
 
