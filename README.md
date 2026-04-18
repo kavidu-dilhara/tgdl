@@ -95,6 +95,50 @@ tgdl download -g GROUP_ID --max-size 100MB
 tgdl download-link https://t.me/channel/123
 ```
 
+## 🏗 System Architecture
+
+```mermaid
+graph TD
+    User((User)) -->|tgdl download -c ID| CLI[CLI Interface]
+    CLI -->|Requires Auth| Auth[Authentication Module]
+    Auth -->|Phone + Code| TG["Telegram API"]
+    Auth -->|Session| Client["TelegramClient"]
+    
+    CLI -->|Entity ID| Downloader["Downloader Engine"]
+    Downloader -->|Connect| Client
+    Client -->|Fetch Messages| TG
+    TG -->|Message Objects| Downloader
+    
+    Downloader -->|Filter| MediaFilter["Media Type Filter"]
+    MediaFilter -->|Size/Type Check| ShouldDL{Should Download?}
+    ShouldDL -->|Yes| Queue["Async Queue"]
+    ShouldDL -->|No| Skip["Skip"]
+    
+    Queue -->|Semaphore| Parallel["Parallel Downloads<br/>1-20 concurrent"]
+    Parallel -->|Fresh Reference| HandleExp["Handle<br/>FileRefExpired"]
+    HandleExp -->|Re-fetch| TG
+    HandleExp -->|Download| Media["media.download"]
+    
+    Media -->|Save| Folder["Output Folder<br/>entity_ID/"]
+    Folder -->|Store| Files["message_id.ext<br/>Files"]
+    Files -->|Resume| Cache["Skip Detection<br/>Already Downloaded"]
+    
+    Downloader -->|Progress| Config["Config/Progress"]
+    CLI -->|Results| User
+```
+
+### How It Works
+
+1. **User Input** → CLI command with channel/group ID
+2. **Authentication** → Phone verification via Telegram API
+3. **Message Fetching** → Retrieve all messages from entity
+4. **Filtering** → Apply media type, size, and format filters
+5. **Parallel Downloads** → Async concurrent downloads with semaphore control
+6. **Error Handling** → Automatic recovery from FileReferenceExpiredError
+7. **File Saving** → Deterministic naming (message_id.extension)
+8. **Resume Detection** → Skip already-downloaded files on retry
+9. **Progress Tracking** → Save state for interrupted downloads
+
 ## 📖 Usage
 
 ### Commands
