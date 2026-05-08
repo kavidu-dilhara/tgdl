@@ -78,25 +78,29 @@ def login():
     click.echo(click.style("\n🔐 Telegram Login", fg='cyan', bold=True))
     click.echo("Get your API credentials from: https://my.telegram.org/apps\n")
     
-    # Check if already logged in
-    is_auth = run_async(check_auth())
-    if is_auth:
+    # Bug #15 fixed: was two separate asyncio.run() event loops (check_auth then
+    # get_user_info). Merged into one coroutine so only one event loop is created.
+    async def _check_and_get_user():
+        from tgdl.auth import get_authenticated_client
+        already_auth = await check_auth()
+        if not already_auth:
+            return None
+        client = get_authenticated_client()
+        if not client:
+            return None
         try:
-            from tgdl.auth import get_authenticated_client
-            client = get_authenticated_client()
-            if client:
-                async def get_user_info():
-                    await client.connect()
-                    me = await client.get_me()
-                    await client.disconnect()
-                    return me
-                me = run_async(get_user_info())
-                click.echo(click.style(f"✓ You're already logged in as {me.first_name} (ID: {me.id})", fg='green'))
-                click.echo("\nUse 'tgdl logout' to logout and login with a different account.")
-                return
-        except Exception as e:
-            # Failed to get user info, continue with login
-            pass
+            await client.connect()
+            me = await client.get_me()
+            await client.disconnect()
+            return me
+        except Exception:
+            return None
+
+    existing_user = run_async(_check_and_get_user())
+    if existing_user:
+        click.echo(click.style(f"✓ You're already logged in as {existing_user.first_name} (ID: {existing_user.id})", fg='green'))
+        click.echo("\nUse 'tgdl logout' to logout and login with a different account.")
+        return
     
     try:
         api_id = click.prompt('Telegram API ID', type=int)
@@ -321,9 +325,15 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
         media_types.append(MediaType.ALL)
     
     # Parse file sizes
+    # Bug #12 fixed: check for None return from _parse_size; a None result
+    # means the user gave an invalid size string — abort rather than silently
+    # ignoring the filter.
     max_size_bytes = _parse_size(max_size) if max_size else None
     min_size_bytes = _parse_size(min_size) if min_size else None
-    
+
+    if (max_size and max_size_bytes is None) or (min_size and min_size_bytes is None):
+        return  # _parse_size already printed the error message
+
     # Display settings
     click.echo(click.style(f"\n📥 Download Settings", fg='cyan', bold=True))
     click.echo(f"  Entity: {entity_type.capitalize()} {entity_id}")
@@ -377,6 +387,7 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
 
 
 @main.command('download-link')
+@require_auth  # Bug #10 fixed: was missing auth guard; unauthenticated calls crashed with AttributeError on None client
 @click.argument('link')
 @click.option('-p', '--photos', is_flag=True, help='Accept only photos')
 @click.option('-v', '--videos', is_flag=True, help='Accept only videos')
@@ -384,7 +395,7 @@ def download(channel, group, bot, photos, videos, audio, documents, max_size, mi
 @click.option('-d', '--documents', is_flag=True, help='Accept only documents')
 @click.option('--max-size', type=str, help='Maximum file size (e.g., 100MB, 1GB)')
 @click.option('--min-size', type=str, help='Minimum file size (e.g., 1MB, 10KB)')
-@click.option('-o', '--output', type=str, default='downloads', help='Output directory')
+@click.option('-o', '--output', type=str, default=DEFAULT_OUTPUT_DIR, help='Output directory (default: downloads)')
 def download_link(link, photos, videos, audio, documents, max_size, min_size, output):
     """
     Download media from a single message link.
@@ -427,9 +438,9 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
     click.echo(f"Link: {link}")
     if max_size_bytes or min_size_bytes:
         if max_size_bytes:
-            click.echo(f"Max size: {_format_size(max_size_bytes)}")
+            click.echo(f"Max size: {format_bytes(max_size_bytes)}")
         if min_size_bytes:
-            click.echo(f"Min size: {_format_size(min_size_bytes)}")
+            click.echo(f"Min size: {format_bytes(min_size_bytes)}")
     click.echo()
     
     # Download with error handling
@@ -493,8 +504,14 @@ def status():
         click.echo("\nAPI credentials: Not configured")
 
 
-def _parse_size(size_str: str) -> int:
-    """Parse size string like '100MB' to bytes."""
+def _parse_size(size_str: str):
+    """Parse size string like '100MB' to bytes.
+
+    Bug #4 fixed: returns None on invalid input instead of 0.  Returning 0
+    silently disabled the filter (0 is falsy so the min/max_size check was
+    short-circuited), giving the user no effective size filtering despite an
+    error message being printed.  Callers must check for None and abort.
+    """
     size_str = size_str.upper().strip()
     
     units = {
@@ -519,7 +536,7 @@ def _parse_size(size_str: str) -> int:
     except ValueError:
         click.echo(click.style(f"✗ Invalid size format: {size_str}", fg='red'))
         click.echo("Use formats like: 100MB, 1.5GB, 500KB")
-        return 0
+        return None  # Bug #4 fixed: was 0, which silently disabled the filter
 
 
 if __name__ == '__main__':
