@@ -24,25 +24,53 @@ class CredentialEncryption:
         """
         self.config_dir = config_dir
         self.key_file = config_dir / ".key"
+        # Bug #6 fixed: salt is now stored per-install rather than being a
+        # hardcoded constant, preventing rainbow-table attacks.
+        self.salt_file = config_dir / ".salt"
         self._cipher = None
     
+    def _get_or_create_salt(self) -> bytes:
+        """Load the per-install random salt, creating it on first run."""
+        if self.salt_file.exists():
+            try:
+                with open(self.salt_file, 'rb') as f:
+                    salt = f.read()
+                if len(salt) == 32:
+                    return salt
+                logger.warning("Salt file has unexpected length; regenerating.")
+            except (IOError, OSError) as e:
+                logger.warning(f"Failed to read salt file: {e}")
+
+        # Generate a new cryptographically-random 32-byte salt
+        salt = os.urandom(32)
+        try:
+            with open(self.salt_file, 'wb') as f:
+                f.write(salt)
+            if os.name != 'nt':
+                os.chmod(self.salt_file, 0o600)
+        except Exception as e:
+            raise RuntimeError(f"Failed to save encryption salt: {e}")
+        return salt
+
     def _generate_key(self) -> bytes:
         """Generate a new encryption key based on machine-specific data."""
-        # Use machine-specific data as salt (hostname + user)
+        # Use machine-specific data as the KDF input
         try:
             import socket
             import getpass
             machine_id = f"{socket.gethostname()}-{getpass.getuser()}".encode()
         except Exception as e:
-            # Fallback to random if machine ID fails
             logger.warning(f"Failed to get machine ID, using random: {e}")
             machine_id = os.urandom(32)
         
-        # Derive key from machine ID using PBKDF2-HMAC
+        # Bug #6 fixed: use a unique random salt (loaded from disk) instead of
+        # the old hardcoded constant that was the same for every user.
+        salt = self._get_or_create_salt()
+
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b'tgdl-secure-storage-v1',  # Fixed salt for consistency
+            salt=salt,
             iterations=100000,
         )
         key = base64.urlsafe_b64encode(kdf.derive(machine_id))
@@ -62,7 +90,6 @@ class CredentialEncryption:
         
         # Save key with restricted permissions
         try:
-            # Write key
             with open(self.key_file, 'wb') as f:
                 f.write(key)
             

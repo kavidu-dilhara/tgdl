@@ -51,8 +51,7 @@ class Config:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
                 logger.warning(f"Failed to load progress file: {e}")
-        return {}
-        return {}
+        return {}  # Bug #2 fixed: duplicate empty-dict return removed
 
     def save_progress(self):
         """Save download progress to file."""
@@ -126,8 +125,18 @@ class Config:
         self._save_config()
 
     def is_authenticated(self) -> bool:
-        """Check if user has valid session file."""
-        return self.session_file.exists()
+        """Check if user has a plausible (non-empty) session file.
+
+        Bug #14 fixed: previously only checked existence; now also verifies the
+        file has content so a zero-byte or truncated session is treated as
+        unauthenticated rather than silently failing later.
+        """
+        if not self.session_file.exists():
+            return False
+        try:
+            return self.session_file.stat().st_size > 0
+        except OSError:
+            return False
 
     def get_session_path(self) -> str:
         """Get session file path."""

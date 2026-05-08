@@ -16,11 +16,13 @@ def format_bytes(bytes_size: int) -> str:
     Returns:
         Formatted string (e.g., "10.5 MB")
     """
+    # Bug #11 fixed: use a local variable so the caller's value is never mutated
+    size = float(bytes_size)
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if bytes_size < 1024.0:
-            return f"{bytes_size:.2f} {unit}"
-        bytes_size /= 1024.0
-    return f"{bytes_size:.2f} PB"
+        if size < 1024.0:
+            return f"{size:.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} PB"
 
 
 def require_auth(func):
