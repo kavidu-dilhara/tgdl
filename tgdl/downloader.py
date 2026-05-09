@@ -213,8 +213,7 @@ class Downloader:
                     )
                 except asyncio.TimeoutError:
                     logger.error(f"Download timed out for msg {message.id}")
-                    if dest_path:
-                        self._cleanup_partial(dest_path)
+                    self._cleanup_partial(dest_path)
                     async with dedup_lock:
                         downloaded_message_ids.discard(message.id)
                     pbar.update(1)
@@ -232,15 +231,13 @@ class Downloader:
                         )
                     except asyncio.TimeoutError as refetch_timeout:
                         logger.error(f"Download timed out for msg {message.id} (re-fetch)")
-                        if dest_path:
-                            self._cleanup_partial(dest_path)
+                        self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
                         raise Exception("Download timed out (on re-fetch)") from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
-                        if dest_path:
-                            self._cleanup_partial(dest_path)
+                        self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
                         raise refetch_error
@@ -250,8 +247,7 @@ class Downloader:
             if file_path:
                 return file_path, message.id
 
-            if dest_path:
-                self._cleanup_partial(dest_path)
+            self._cleanup_partial(dest_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             return None, message.id
