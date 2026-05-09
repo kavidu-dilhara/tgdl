@@ -419,16 +419,15 @@ class Downloader:
             if failed_ids:
                 oldest_failed_id = min(failed_ids)
                 # Keep watermark just before the oldest failure so retries include that failed
-                # message (min_id is exclusive, hence -1). If the oldest failure is message 1,
-                # we store 0 to start from the beginning on the next run.
+                # message (min_id is exclusive, hence -1). Telegram IDs are monotonically
+                # increasing, so any value below the failed ID is safe even if gaps exist.
+                # If the oldest failure is message 1, we store 0 to start from the beginning.
                 progress_candidate = max(0, oldest_failed_id - 1)
                 self.config.set_progress(str(entity_id), progress_candidate)
-            elif had_unhandled_failures:
-                # Leave progress unchanged when failures lack an ID to avoid skipping retries.
-                pass
-            else:
+            elif not had_unhandled_failures:
                 # No failures: safe to advance to the newest successfully handled message.
                 self.config.set_progress(str(entity_id), max(successful_ids))
+            # When failures lack an ID, leave progress unchanged to avoid skipping retries.
 
         successful = len(successful_ids)
 
