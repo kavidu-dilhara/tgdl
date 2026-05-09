@@ -183,6 +183,7 @@ class Downloader:
         any I/O.
         """
         already_done = False
+        dest_path: Optional[Path] = None
         try:
             # Atomically check-and-reserve this message ID
             async with dedup_lock:
@@ -203,6 +204,7 @@ class Downloader:
                     ext = _guess_extension(message.file.mime_type)
 
                 dest = str(folder / f"{message.id}{ext}")
+                dest_path = Path(dest)
 
                 try:
                     file_path = await asyncio.wait_for(
@@ -211,6 +213,8 @@ class Downloader:
                     )
                 except asyncio.TimeoutError:
                     logger.error(f"Download timed out for msg {message.id}")
+                    if dest_path:
+                        self._cleanup_partial(dest_path)
                     async with dedup_lock:
                         downloaded_message_ids.discard(message.id)
                     pbar.update(1)
@@ -226,8 +230,17 @@ class Downloader:
                             fresh_message.download_media(file=dest),
                             timeout=DOWNLOAD_TIMEOUT,
                         )
+                    except asyncio.TimeoutError as refetch_timeout:
+                        logger.error(f"Download timed out for msg {message.id} (re-fetch)")
+                        if dest_path:
+                            self._cleanup_partial(dest_path)
+                        async with dedup_lock:
+                            downloaded_message_ids.discard(message.id)
+                        raise Exception("Download timed out (on re-fetch)") from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
+                        if dest_path:
+                            self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
                         raise refetch_error
@@ -237,12 +250,16 @@ class Downloader:
             if file_path:
                 return file_path, message.id
 
+            if dest_path:
+                self._cleanup_partial(dest_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             return None, message.id
 
         except Exception as e:
             click.echo(f"\n✗ Error downloading message {message.id}: {e}")
+            if dest_path:
+                self._cleanup_partial(dest_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             pbar.update(1)  # Fix #15: outside lock
@@ -384,13 +401,27 @@ class Downloader:
         pbar.close()
 
         successful_ids = []
+        failed_ids = []
+        had_unhandled_failures = False
         for result in results:
-            if not isinstance(result, Exception) and result[0] is not None:
-                successful_ids.append(result[1])
+            if isinstance(result, Exception):
+                had_unhandled_failures = True
+                continue
+            file_path, msg_id = result
+            if file_path:
+                successful_ids.append(msg_id)
+            elif msg_id in downloaded_message_ids:
+                successful_ids.append(msg_id)
+            else:
+                failed_ids.append(msg_id)
 
         if successful_ids:
-            oldest_downloaded_id = min(successful_ids)
-            self.config.set_progress(str(entity_id), oldest_downloaded_id)
+            if failed_ids:
+                oldest_failed_id = min(failed_ids)
+                progress_candidate = max((last_message_id or 0), oldest_failed_id - 1)
+                self.config.set_progress(str(entity_id), progress_candidate)
+            elif not had_unhandled_failures:
+                self.config.set_progress(str(entity_id), max(successful_ids))
 
         successful = len(successful_ids)
 
