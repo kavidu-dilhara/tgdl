@@ -234,7 +234,9 @@ class Downloader:
                         self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
-                        raise asyncio.TimeoutError("Download timed out (on re-fetch)") from refetch_timeout
+                        raise asyncio.TimeoutError(
+                            f"Download timed out for msg {message.id} (re-fetch)"
+                        ) from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
                         self._cleanup_partial(dest_path)
@@ -415,7 +417,7 @@ class Downloader:
         if successful_ids:
             if failed_ids:
                 oldest_failed_id = min(failed_ids)
-                progress_candidate = max((last_message_id or 0), oldest_failed_id - 1)
+                progress_candidate = max(0, oldest_failed_id - 1)
                 self.config.set_progress(str(entity_id), progress_candidate)
             elif not had_unhandled_failures:
                 self.config.set_progress(str(entity_id), max(successful_ids))
