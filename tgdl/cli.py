@@ -5,9 +5,9 @@ import logging
 import os
 import click
 from tgdl import __version__
-from tgdl.auth import login_user, check_auth
+from tgdl.auth import login_user
 from tgdl.list import get_channels, get_groups, get_bots, display_channels, display_groups, display_bots
-from tgdl.downloader import Downloader, MediaType, DEFAULT_MAX_CONCURRENT, DEFAULT_OUTPUT_DIR
+from tgdl.downloader import Downloader, MediaType, DEFAULT_MAX_CONCURRENT, MAX_CONCURRENT_LIMIT, DEFAULT_OUTPUT_DIR
 from tgdl.config import get_config
 from tgdl.utils import format_bytes, require_auth
 
@@ -65,18 +65,30 @@ def main():
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_user_info():
-    """Connect, fetch the logged-in user, and disconnect — single coroutine."""
-    from tgdl.auth import get_authenticated_client
-    client = get_authenticated_client()
-    if not client:
-        return None
+async def _get_user_info_with_client(client):
+    """Fetch the logged-in user using an already-connected client."""
     try:
-        await client.connect()
         me = await client.get_me()
         return me
     except Exception:
         return None
+
+
+async def _check_auth_and_get_user():
+    """Check auth and get user info in a single connection."""
+    from tgdl.auth import get_authenticated_client
+    client = get_authenticated_client()
+    if not client:
+        return False, None
+    try:
+        await client.connect()
+        is_auth = await client.is_user_authorized()
+        if not is_auth:
+            return False, None
+        me = await _get_user_info_with_client(client)
+        return True, me
+    except Exception:
+        return False, None
     finally:
         try:
             await client.disconnect()
@@ -109,17 +121,24 @@ def _parse_size(size_str: str):
         if size_str.endswith(unit):
             try:
                 number = float(size_str[:-len(unit)])
+                if number < 0:
+                    click.echo(click.style(f"\u2717 Size cannot be negative: {size_str}", fg='red'))
+                    return None
                 return int(number * multiplier)
             except ValueError:
                 pass
 
     # Try plain integer (bytes)
     try:
-        return int(size_str)
+        value = int(size_str)
+        if value < 0:
+            click.echo(click.style(f"\u2717 Size cannot be negative: {size_str}", fg='red'))
+            return None
+        return value
     except ValueError:
-        click.echo(click.style(f"✗ Invalid size format: {size_str}", fg='red'))
+        click.echo(click.style(f"\u2717 Invalid size format: {size_str}", fg='red'))
         click.echo("Use formats like: 100MB, 1.5GB, 500KB")
-        return None  # None signals invalid input; callers must guard against it
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -136,14 +155,7 @@ def login():
     click.echo(click.style("\n🔐 Telegram Login", fg='cyan', bold=True))
     click.echo("Get your API credentials from: https://my.telegram.org/apps\n")
 
-    # Fix #13: single event loop — check auth AND get user info in one coroutine
-    async def _check_and_get_user():
-        already_auth = await check_auth()
-        if not already_auth:
-            return None
-        return await _get_user_info()
-
-    existing_user = run_async(_check_and_get_user())
+    is_auth, existing_user = run_async(_check_auth_and_get_user())
     if existing_user:
         click.echo(click.style(
             f"✓ You're already logged in as {existing_user.first_name} (ID: {existing_user.id})",
@@ -177,19 +189,9 @@ def logout():
 
     This will delete your local session file and you'll need to login again.
     """
-    import os
-    from tgdl.config import get_config
-
     click.echo(click.style("\n🔓 Logout from Telegram\n", fg='cyan', bold=True))
 
-    # Fix #14: single event loop — check auth AND get user info in one coroutine
-    async def _check_and_get_user_for_logout():
-        already_auth = await check_auth()
-        if not already_auth:
-            return None
-        return await _get_user_info()
-
-    me = run_async(_check_and_get_user_for_logout())
+    is_auth, me = run_async(_check_auth_and_get_user())
 
     if me is None:
         click.echo(click.style("✗ You're not logged in.", fg='yellow'))
@@ -321,6 +323,12 @@ def download(channel, group, bot, photos, videos, audio, documents,
       tgdl download -c 1234567890 --min-id 20 --max-id 100
       tgdl download -c 1234567890 --concurrent 10
     """
+    if concurrent < 1 or concurrent > MAX_CONCURRENT_LIMIT:
+        click.echo(click.style(
+            f"\u2717 --concurrent must be between 1 and {MAX_CONCURRENT_LIMIT}", fg='red'
+        ))
+        return
+
     if not channel and not group and not bot:
         click.echo(click.style("✗ Please specify either --channel, --group, or --bot", fg='red'))
         click.echo("Use 'tgdl channels', 'tgdl groups', or 'tgdl bots' to list available IDs")
@@ -470,15 +478,7 @@ def status():
     config = get_config()
     click.echo(click.style("\n📊 tgdl Status\n", fg='cyan', bold=True))
 
-    # Fix #14: single event loop — check auth and get user info together
-    async def _check_and_get_user_for_status():
-        auth = await check_auth()
-        if not auth:
-            return False, None
-        me = await _get_user_info()
-        return True, me
-
-    is_auth, me = run_async(_check_and_get_user_for_status())
+    is_auth, me = run_async(_check_auth_and_get_user())
 
     if is_auth:
         click.echo(click.style("✓ Authenticated", fg='green'))
@@ -497,7 +497,9 @@ def status():
 
     api_id, api_hash = config.get_api_credentials()
     if api_id:
-        click.echo(f"\nAPI ID: {api_id}")
+        api_id_str = str(api_id)
+        masked_id = '*' * max(0, len(api_id_str) - 4) + api_id_str[-4:]
+        click.echo(f"\nAPI ID: {masked_id}")
         click.echo(f"API Hash: {'*' * 8}{api_hash[-4:] if api_hash else 'Not set'}")
     else:
         click.echo("\nAPI credentials: Not configured")

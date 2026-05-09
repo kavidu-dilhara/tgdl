@@ -137,9 +137,8 @@ class Config:
     def set_api_credentials(self, api_id: int, api_hash: str):
         """Save API credentials to config (with encryption)."""
         encrypted_id, encrypted_hash = self.crypto.encrypt_credentials(api_id, api_hash)
-        self.set('api_id_enc', encrypted_id)
-        self.set('api_hash_enc', encrypted_hash)
-        # Remove old plaintext credentials if they exist
+        self._config['api_id_enc'] = encrypted_id
+        self._config['api_hash_enc'] = encrypted_hash
         self._config.pop('api_id', None)
         self._config.pop('api_hash', None)
         self._save_config()

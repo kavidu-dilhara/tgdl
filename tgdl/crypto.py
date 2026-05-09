@@ -91,10 +91,18 @@ class CredentialEncryption:
                         return key
                     except (ValueError, Exception):
                         pass
-                logger.warning("Key file is malformed or wrong length; regenerating.")
+                logger.warning(
+                    "Key file is malformed or wrong length; regenerating. "
+                    "Previously encrypted credentials will become unreadable — "
+                    "you may need to run 'tgdl login' again."
+                )
             except (IOError, OSError) as e:
                 logger.warning(f"Failed to read key file: {e}")
 
+        logger.info(
+            "Generating new encryption key. If you had previously saved "
+            "credentials, run 'tgdl login' to re-authenticate."
+        )
         key = self._generate_key()
         try:
             with open(self.key_file, 'wb') as f:
