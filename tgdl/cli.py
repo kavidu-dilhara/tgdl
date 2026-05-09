@@ -329,17 +329,24 @@ def download(channel, group, bot, photos, videos, audio, documents,
         ))
         return
 
-    if not channel and not group and not bot:
+    if channel is None and group is None and bot is None:
         click.echo(click.style("✗ Please specify either --channel, --group, or --bot", fg='red'))
         click.echo("Use 'tgdl channels', 'tgdl groups', or 'tgdl bots' to list available IDs")
         return
 
-    if sum([bool(channel), bool(group), bool(bot)]) > 1:
+    if sum(value is not None for value in (channel, group, bot)) > 1:
         click.echo(click.style("✗ Please specify only one: --channel, --group, OR --bot", fg='red'))
         return
 
-    entity_id = channel or group or bot
-    entity_type = "channel" if channel else ("group" if group else "bot")
+    if channel is not None:
+        entity_id = channel
+        entity_type = "channel"
+    elif group is not None:
+        entity_id = group
+        entity_type = "group"
+    else:
+        entity_id = bot
+        entity_type = "bot"
 
     media_types = []
     if photos:

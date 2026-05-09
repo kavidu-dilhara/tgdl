@@ -183,6 +183,7 @@ class Downloader:
         any I/O.
         """
         already_done = False
+        dest_path: Optional[Path] = None
         try:
             # Atomically check-and-reserve this message ID
             async with dedup_lock:
@@ -203,6 +204,7 @@ class Downloader:
                     ext = _guess_extension(message.file.mime_type)
 
                 dest = str(folder / f"{message.id}{ext}")
+                dest_path = Path(dest)
 
                 try:
                     file_path = await asyncio.wait_for(
@@ -211,6 +213,7 @@ class Downloader:
                     )
                 except asyncio.TimeoutError:
                     logger.error(f"Download timed out for msg {message.id}")
+                    self._cleanup_partial(dest_path)
                     async with dedup_lock:
                         downloaded_message_ids.discard(message.id)
                     pbar.update(1)
@@ -226,8 +229,17 @@ class Downloader:
                             fresh_message.download_media(file=dest),
                             timeout=DOWNLOAD_TIMEOUT,
                         )
+                    except asyncio.TimeoutError as refetch_timeout:
+                        logger.error(f"Download timed out for msg {message.id} (re-fetch)")
+                        self._cleanup_partial(dest_path)
+                        async with dedup_lock:
+                            downloaded_message_ids.discard(message.id)
+                        raise asyncio.TimeoutError(
+                            f"Download timed out for msg {message.id} (re-fetch)"
+                        ) from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
+                        self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
                         raise refetch_error
@@ -237,12 +249,15 @@ class Downloader:
             if file_path:
                 return file_path, message.id
 
+            self._cleanup_partial(dest_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             return None, message.id
 
         except Exception as e:
             click.echo(f"\n✗ Error downloading message {message.id}: {e}")
+            if dest_path:
+                self._cleanup_partial(dest_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             pbar.update(1)  # Fix #15: outside lock
@@ -324,6 +339,7 @@ class Downloader:
         folder.mkdir(parents=True, exist_ok=True)
 
         downloaded_message_ids = self._get_downloaded_message_ids(folder)
+        preexisting_downloaded_ids = set(downloaded_message_ids)
         if downloaded_message_ids:
             click.echo(click.style(
                 f"Found {len(downloaded_message_ids)} already downloaded files, will skip...",
@@ -384,13 +400,34 @@ class Downloader:
         pbar.close()
 
         successful_ids = []
+        failed_ids = []
+        had_unhandled_failures = False
         for result in results:
-            if not isinstance(result, Exception) and result[0] is not None:
-                successful_ids.append(result[1])
+            if isinstance(result, Exception):
+                had_unhandled_failures = True
+                continue
+            file_path, msg_id = result
+            if file_path:
+                successful_ids.append(msg_id)
+            elif msg_id in preexisting_downloaded_ids:
+                # Already downloaded before this run; treat as successful for watermark purposes.
+                successful_ids.append(msg_id)
+            else:
+                failed_ids.append(msg_id)
 
         if successful_ids:
-            oldest_downloaded_id = min(successful_ids)
-            self.config.set_progress(str(entity_id), oldest_downloaded_id)
+            if failed_ids:
+                oldest_failed_id = min(failed_ids)
+                # Keep watermark just before the oldest failure so retries include that failed
+                # message (min_id is exclusive, hence -1). Telegram IDs are monotonically
+                # increasing, so any value below the failed ID is safe even if gaps exist.
+                # If the oldest failure is message 1, we store 0 to start from the beginning.
+                progress_candidate = max(0, oldest_failed_id - 1)
+                self.config.set_progress(str(entity_id), progress_candidate)
+            elif not had_unhandled_failures:
+                # No failures: safe to advance to the newest successfully handled message.
+                self.config.set_progress(str(entity_id), max(successful_ids))
+            # When failures lack an ID, leave progress unchanged to avoid skipping retries.
 
         successful = len(successful_ids)
 
@@ -523,8 +560,10 @@ class Downloader:
                     logger.debug(f"Error disconnecting client: {disc_err}")
 
     @staticmethod
-    def _cleanup_partial(dest_path: Path):
+    def _cleanup_partial(dest_path: Optional[Path]):
         """Remove a partially downloaded file if it exists."""
+        if not dest_path:
+            return
         try:
             if dest_path.exists():
                 dest_path.unlink()
