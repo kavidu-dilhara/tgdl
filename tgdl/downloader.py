@@ -36,6 +36,27 @@ DOWNLOAD_TIMEOUT = 1800
 PROGRESS_BAR_LENGTH = 30
 PROGRESS_BAR_FILLED_CHAR = "█"
 PROGRESS_BAR_EMPTY_CHAR = "░"
+MIME_EXTENSION_OVERRIDES = {
+    "video/mp4": ".mp4",
+    "video/x-matroska": ".mkv",
+    "audio/mpeg": ".mp3",
+    "audio/mp4": ".m4a",
+    "audio/aac": ".aac",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "application/pdf": ".pdf",
+}
+
+
+def _guess_extension(mime_type: Optional[str]) -> str:
+    """Return a stable extension for common MIME types."""
+    if not mime_type:
+        return ""
+    normalized = mime_type.lower()
+    if normalized in MIME_EXTENSION_OVERRIDES:
+        return MIME_EXTENSION_OVERRIDES[normalized]
+    return mimetypes.guess_extension(normalized) or ""
 
 
 class MediaType(Enum):
@@ -179,7 +200,7 @@ class Downloader:
                 if message.file and message.file.name:
                     ext = Path(message.file.name).suffix
                 elif message.file and message.file.mime_type:
-                    ext = mimetypes.guess_extension(message.file.mime_type) or ""
+                    ext = _guess_extension(message.file.mime_type)
 
                 dest = str(folder / f"{message.id}{ext}")
 
@@ -368,8 +389,8 @@ class Downloader:
                 successful_ids.append(result[1])
 
         if successful_ids:
-            max_downloaded_id = max(successful_ids)
-            self.config.set_progress(str(entity_id), max_downloaded_id)
+            oldest_downloaded_id = min(successful_ids)
+            self.config.set_progress(str(entity_id), oldest_downloaded_id)
 
         successful = len(successful_ids)
 
@@ -437,7 +458,7 @@ class Downloader:
             if message.file and message.file.name:
                 ext = Path(message.file.name).suffix
             elif message.file and message.file.mime_type:
-                ext = mimetypes.guess_extension(message.file.mime_type) or ""
+                ext = _guess_extension(message.file.mime_type)
             dest = str(folder / f"{message_id}{ext}")
 
             dest_path = Path(dest)
@@ -464,6 +485,10 @@ class Downloader:
                 except asyncio.TimeoutError:
                     self._cleanup_partial(dest_path)
                     click.echo(click.style("\n✗ Download timed out (on re-fetch).", fg="red"))
+                    return False
+                if not file_path:
+                    self._cleanup_partial(dest_path)
+                    click.echo(click.style("\n✗ Re-fetch download returned no file", fg="red"))
                     return False
             except asyncio.TimeoutError:
                 self._cleanup_partial(dest_path)
@@ -542,7 +567,7 @@ class Downloader:
         if match:
             username = match.group(1)
             # Reject invite links and other special paths
-            if username in ('+', 'joinchat', 'addstickers', 'addemoji', 'share'):
+            if username.startswith('+') or username in ('joinchat', 'addstickers', 'addemoji', 'share'):
                 return None, None
             return username, int(match.group(2))
 
