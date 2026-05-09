@@ -108,12 +108,12 @@ class Downloader:
         if MediaType.ALL not in self.media_types and media_type not in self.media_types:
             return False
 
-        file_size = message.file.size or 0
+        file_size = message.file.size
 
-        if self.max_size and file_size and file_size > self.max_size:
+        if self.max_size and file_size is not None and file_size > self.max_size:
             return False
 
-        if self.min_size and file_size and file_size < self.min_size:
+        if self.min_size and (file_size is None or file_size < self.min_size):
             return False
 
         return True
@@ -153,6 +153,7 @@ class Downloader:
         pbar,
         downloaded_message_ids: Set[int],
         client,
+        entity_id: int = None,
     ):
         """Download a single media file.
 
@@ -191,11 +192,13 @@ class Downloader:
                     logger.error(f"Download timed out for msg {message.id}")
                     async with dedup_lock:
                         downloaded_message_ids.discard(message.id)
-                    raise
+                    pbar.update(1)
+                    return None, message.id
                 except FileReferenceExpiredError:
                     logger.info(f"File reference expired for msg {message.id}, re-fetching...")
                     try:
-                        fresh_message = await client.get_messages(message.chat_id, ids=message.id)
+                        chat = entity_id if entity_id is not None else message.chat_id
+                        fresh_message = await client.get_messages(chat, ids=message.id)
                         if not fresh_message:
                             raise Exception(f"Message {message.id} no longer exists")
                         file_path = await asyncio.wait_for(
@@ -352,7 +355,7 @@ class Downloader:
         pbar = tqdm(total=len(messages_to_download), desc="Downloading", unit="file")
 
         tasks = [
-            self._download_single(msg, folder, semaphore, dedup_lock, pbar, downloaded_message_ids, client)
+            self._download_single(msg, folder, semaphore, dedup_lock, pbar, downloaded_message_ids, client, entity_id)
             for msg in messages_to_download
         ]
 
@@ -437,6 +440,7 @@ class Downloader:
                 ext = mimetypes.guess_extension(message.file.mime_type) or ""
             dest = str(folder / f"{message_id}{ext}")
 
+            dest_path = Path(dest)
             try:
                 file_path = await asyncio.wait_for(
                     message.download_media(
@@ -448,14 +452,21 @@ class Downloader:
                 logger.info(f"File reference expired for msg {message_id}, re-fetching...")
                 fresh_message = await client.get_messages(entity_id, ids=message_id)
                 if not fresh_message:
+                    self._cleanup_partial(dest_path)
                     raise Exception(f"Message {message_id} no longer exists")
-                file_path = await asyncio.wait_for(
-                    fresh_message.download_media(
-                        file=dest, progress_callback=self._create_progress_callback()
-                    ),
-                    timeout=DOWNLOAD_TIMEOUT,
-                )
+                try:
+                    file_path = await asyncio.wait_for(
+                        fresh_message.download_media(
+                            file=dest, progress_callback=self._create_progress_callback()
+                        ),
+                        timeout=DOWNLOAD_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    self._cleanup_partial(dest_path)
+                    click.echo(click.style("\n✗ Download timed out (on re-fetch).", fg="red"))
+                    return False
             except asyncio.TimeoutError:
+                self._cleanup_partial(dest_path)
                 click.echo(click.style("\n✗ Download timed out.", fg="red"))
                 return False
             print()
@@ -464,6 +475,7 @@ class Downloader:
                 click.echo(click.style(f"\n✓ Successfully downloaded to: {file_path}", fg="green"))
                 return True
             else:
+                self._cleanup_partial(dest_path)
                 click.echo(click.style("\n✗ Failed to download", fg="red"))
                 return False
 
@@ -484,6 +496,15 @@ class Downloader:
                     await client.disconnect()
                 except Exception as disc_err:
                     logger.debug(f"Error disconnecting client: {disc_err}")
+
+    @staticmethod
+    def _cleanup_partial(dest_path: Path):
+        """Remove a partially downloaded file if it exists."""
+        try:
+            if dest_path.exists():
+                dest_path.unlink()
+        except OSError as e:
+            logger.debug(f"Failed to clean up partial file {dest_path}: {e}")
 
     def _create_progress_callback(self) -> Callable:
         """Create a progress callback for single-file download progress bars."""
@@ -508,13 +529,16 @@ class Downloader:
         """
         link = link.strip()
 
+        # Strip query string and trailing slashes before matching
+        link = re.sub(r'[?#].*$', '', link).rstrip('/')
+
         # Private channel/group: https://t.me/c/1234567890/123
-        match = re.match(r"https?://t\.me/c/(\d+)/(\d+)", link)
+        match = re.match(r"https?://t\.me/c/(\d+)/(\d+)$", link)
         if match:
             return int("-100" + match.group(1)), int(match.group(2))
 
         # Public channel: https://t.me/username/123
-        match = re.match(r"https?://t\.me/([^/]+)/(\d+)", link)
+        match = re.match(r"https?://t\.me/([^/]+)/(\d+)$", link)
         if match:
             username = match.group(1)
             # Reject invite links and other special paths
