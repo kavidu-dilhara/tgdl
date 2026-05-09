@@ -157,13 +157,11 @@ class Config:
         return str(self.config_dir / "tgdl")
 
 
-# Global config instance
-_config = None
+# Global config instance — initialized eagerly at import time so concurrent
+# coroutines always see the same object.
+_config = Config()
 
 
 def get_config() -> Config:
     """Get global config instance."""
-    global _config
-    if _config is None:
-        _config = Config()
     return _config

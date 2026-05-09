@@ -44,11 +44,12 @@ def require_auth(func):
         except RuntimeError:
             try:
                 loop = asyncio.get_running_loop()
+            except RuntimeError:
+                is_authenticated = False
+            else:
                 import concurrent.futures
                 future = asyncio.run_coroutine_threadsafe(check_auth(), loop)
                 is_authenticated = future.result(timeout=30)
-            except RuntimeError:
-                is_authenticated = asyncio.run(check_auth())
 
         if not is_authenticated:
             click.echo(click.style("\n✗ You're not logged in.", fg='red'))
