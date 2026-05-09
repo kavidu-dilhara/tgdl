@@ -234,10 +234,9 @@ class Downloader:
                         self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
-                        refetch_timeout.args = (
-                            f"Download timed out for msg {message.id} (re-fetch)",
-                        )
-                        raise
+                        raise asyncio.TimeoutError(
+                            f"Download timed out for msg {message.id} (re-fetch)"
+                        ) from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
                         self._cleanup_partial(dest_path)
@@ -418,8 +417,9 @@ class Downloader:
         if successful_ids:
             if failed_ids:
                 oldest_failed_id = min(failed_ids)
-                # Keep watermark just before the oldest failure so retries include failed and newer
-                # messages; 0 means "start from the beginning".
+                # Keep watermark just before the oldest failure so retries include that failed
+                # message (min_id is exclusive, hence -1). If the oldest failure is message 1,
+                # we store 0 to start from the beginning on the next run.
                 progress_candidate = max(0, oldest_failed_id - 1)
                 self.config.set_progress(str(entity_id), progress_candidate)
             elif not had_unhandled_failures:
