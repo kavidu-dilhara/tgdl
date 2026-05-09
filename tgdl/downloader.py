@@ -20,7 +20,6 @@ from telethon.tl.types import (
 from telethon.errors import (
     FloodWaitError,
     ChannelPrivateError,
-    # Bug #13 fixed: removed unused write-error import (was never handled)
     FileReferenceExpiredError,
 )
 
@@ -118,20 +117,25 @@ class Downloader:
         return True
 
     def _get_downloaded_files(self, folder: Path) -> Set[str]:
-        """Get set of already downloaded files."""
+        """Get set of already downloaded filenames."""
         if not folder.exists():
             return set()
         return set(os.listdir(folder))
 
     def _get_downloaded_message_ids(self, folder: Path) -> Set[int]:
-        """Get set of message IDs from already downloaded files that actually exist."""
+        """Get set of message IDs from already downloaded files.
+
+        Fix #16: exclude symlinks — is_file() returns True for symlinks too,
+        which could fool the size check with a large linked file.
+        """
         if not folder.exists():
             return set()
 
         message_ids = set()
         for filename in os.listdir(folder):
             file_path = folder / filename
-            if not file_path.is_file():
+            # Fix #16: skip symlinks explicitly
+            if file_path.is_symlink() or not file_path.is_file():
                 continue
             try:
                 if file_path.stat().st_size == 0:
@@ -156,19 +160,22 @@ class Downloader:
     ):
         """Download a single media file.
 
-        Bug #5 fixed: dedup_lock (asyncio.Lock) guards all reads AND writes to
-        downloaded_message_ids so concurrent coroutines cannot both pass the
-        already-downloaded check before either records the ID in the set (TOCTOU
-        race condition).
+        Fix #15: pbar.update() is now called OUTSIDE the dedup_lock so the
+        lock is held only for the minimal check-and-add operation, not during
+        any I/O.
         """
+        already_done = False
         try:
-            # Atomically check-and-reserve this message ID.
+            # Atomically check-and-reserve this message ID
             async with dedup_lock:
                 if message.id in downloaded_message_ids:
-                    pbar.update(1)
-                    return None, message.id
-                # Reserve immediately; cleared on failure below.
-                downloaded_message_ids.add(message.id)
+                    already_done = True
+                else:
+                    downloaded_message_ids.add(message.id)
+
+            if already_done:
+                pbar.update(1)  # Fix #15: outside lock
+                return None, message.id
 
             async with semaphore:
                 ext = ""
@@ -194,12 +201,11 @@ class Downloader:
                             downloaded_message_ids.discard(message.id)
                         raise refetch_error
 
-            pbar.update(1)
+            pbar.update(1)  # Fix #15: outside lock
 
             if file_path:
                 return file_path, message.id
 
-            # download_media returned None — clear the reservation
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             return None, message.id
@@ -208,7 +214,7 @@ class Downloader:
             click.echo(f"\n✗ Error downloading message {message.id}: {e}")
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
-            pbar.update(1)
+            pbar.update(1)  # Fix #15: outside lock
             return None, message.id
 
     async def download_from_entity(
@@ -218,14 +224,7 @@ class Downloader:
         min_msg_id: Optional[int] = None,
         max_msg_id: Optional[int] = None,
     ) -> int:
-        """
-        Download media from a channel or group.
-
-        Bug #7 fixed: a single try/finally block guarantees client.disconnect()
-        is called exactly once regardless of which code path exits, eliminating
-        the tangled per-except disconnect calls that could double-disconnect or
-        silently leak sessions.
-        """
+        """Download media from a channel or group."""
         client = get_authenticated_client()
         if not client:
             return 0
@@ -237,11 +236,9 @@ class Downloader:
             )
         except KeyboardInterrupt:
             click.echo(click.style("\n\n⚠ Download cancelled by user.", fg="yellow"))
-            logger.info("Download cancelled by user (KeyboardInterrupt)")
             return 0
         except FloodWaitError as e:
             click.echo(click.style(f"✗ Rate limited by Telegram. Wait {e.seconds} seconds", fg="red"))
-            logger.warning(f"FloodWaitError during download: {e.seconds} seconds")
             return 0
         except Exception as e:
             click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
@@ -250,8 +247,8 @@ class Downloader:
         finally:
             try:
                 await client.disconnect()
-            except Exception as disconnect_error:
-                logger.debug(f"Error disconnecting client: {disconnect_error}")
+            except Exception as disc_err:
+                logger.debug(f"Error disconnecting client: {disc_err}")
 
     async def _download_from_entity_inner(
         self,
@@ -261,7 +258,7 @@ class Downloader:
         min_msg_id: Optional[int],
         max_msg_id: Optional[int],
     ) -> int:
-        """Core logic for download_from_entity (client already connected)."""
+        """Core download logic (client already connected)."""
         entity = None
         try:
             async for dialog in client.iter_dialogs():
@@ -274,7 +271,6 @@ class Downloader:
                     entity = await client.get_entity(entity_id)
                 except ChannelPrivateError:
                     click.echo(click.style(f"\n✗ Entity {entity_id} is private or you don't have access", fg="red"))
-                    logger.error(f"ChannelPrivateError: Cannot access entity {entity_id}")
                     return 0
                 except FloodWaitError:
                     raise
@@ -284,10 +280,7 @@ class Downloader:
                     click.echo("\n💡 Make sure:")
                     click.echo("  1. You have access to this entity")
                     click.echo("  2. You've interacted with it before")
-                    click.echo("  3. Try these commands to find the correct ID:")
-                    click.echo("     • tgdl channels - List all your channels")
-                    click.echo("     • tgdl groups   - List all your groups")
-                    click.echo("     • tgdl bots     - List all your bot chats")
+                    click.echo("  3. Try: tgdl channels / tgdl groups / tgdl bots")
                     return 0
 
         except FloodWaitError:
@@ -301,33 +294,35 @@ class Downloader:
 
         downloaded_message_ids = self._get_downloaded_message_ids(folder)
         if downloaded_message_ids:
-            click.echo(
-                click.style(
-                    f"Found {len(downloaded_message_ids)} already downloaded files, will skip...",
-                    fg="yellow",
-                )
-            )
+            click.echo(click.style(
+                f"Found {len(downloaded_message_ids)} already downloaded files, will skip...",
+                fg="yellow",
+            ))
 
         last_message_id = self.config.get_progress(str(entity_id))
 
         if min_msg_id is not None:
             start_id = min_msg_id - 1
-            click.echo(f"Fetching messages from entity {entity_id} (ID range: {min_msg_id} to {max_msg_id or 'latest'})...")
+            click.echo(f"Fetching messages from entity {entity_id} "
+                       f"(ID range: {min_msg_id} to {max_msg_id or 'latest'})...")
         else:
             start_id = last_message_id if last_message_id else 0
             click.echo(f"Fetching messages from entity {entity_id}...")
 
         messages_to_download = []
 
-        # iter_messages yields in descending ID order (newest → oldest).
-        async for message in client.iter_messages(entity, min_id=start_id):
-            # Bug #9 fixed: was `continue`, which made the loop spin over every
-            # message above max_msg_id.  Using `continue` here is actually
-            # correct for the descending-order case — we skip messages that are
-            # above the ceiling until we enter the desired window, then collect.
-            # The original bug was the belief that `break` was needed; in fact
-            # `continue` is right because newer messages arrive first and we
-            # want to keep iterating until the IDs drop into range.
+        # iter_messages yields newest → oldest (descending ID order).
+        # Fix #6: when max_msg_id is given, pass it as offset_id so Telegram
+        # starts fetching from that point instead of the very latest message,
+        # avoiding unnecessary API round-trips to skip messages above the ceiling.
+        iter_kwargs = {"min_id": start_id}
+        if max_msg_id is not None:
+            # offset_id is exclusive (Telegram returns messages with id < offset_id),
+            # so add 1 to include max_msg_id itself.
+            iter_kwargs["offset_id"] = max_msg_id + 1
+
+        async for message in client.iter_messages(entity, **iter_kwargs):
+            # Belt-and-suspenders guard in case Telegram returns a stray message
             if max_msg_id is not None and message.id > max_msg_id:
                 continue
 
@@ -336,7 +331,6 @@ class Downloader:
 
             if self._should_download(message):
                 messages_to_download.append(message)
-
                 if limit and len(messages_to_download) >= limit:
                     break
 
@@ -344,12 +338,10 @@ class Downloader:
             click.echo(click.style("No new media to download!", fg="yellow"))
             return 0
 
-        click.echo(
-            click.style(f"Found {len(messages_to_download)} media files to download", fg="green")
-        )
+        click.echo(click.style(f"Found {len(messages_to_download)} media files to download", fg="green"))
 
         semaphore = asyncio.Semaphore(self.max_concurrent)
-        dedup_lock = asyncio.Lock()  # Bug #5 fix: lock for downloaded_message_ids
+        dedup_lock = asyncio.Lock()
         pbar = tqdm(total=len(messages_to_download), desc="Downloading", unit="file")
 
         tasks = [
@@ -360,10 +352,6 @@ class Downloader:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         pbar.close()
 
-        # Bug #3 fixed: save the highest (newest) message ID, not the last
-        # element of the list.  Because iter_messages yields newest→oldest,
-        # messages_to_download[0] holds the highest ID — but using max() is
-        # explicit and safe regardless of order.
         if messages_to_download:
             max_downloaded_id = max(m.id for m in messages_to_download)
             self.config.set_progress(str(entity_id), max_downloaded_id)
@@ -375,19 +363,19 @@ class Downloader:
 
         click.echo(click.style(f"\n✓ Successfully downloaded {successful} files!", fg="green"))
         click.echo(f"Files saved to: {folder.absolute()}")
-
         return successful
 
     async def download_from_link(self, link: str) -> bool:
-        """
-        Download media from a single message link.
+        """Download media from a single message link.
 
-        Bug #7 fixed: single try/finally for clean disconnect.
+        Fix #5: track whether connect() was reached so the finally block only
+        calls disconnect() when the client was actually connected.
         """
         client = get_authenticated_client()
         if not client:
             return False
 
+        connected = False
         try:
             entity_id, message_id = self._parse_link(link)
             if not entity_id or not message_id:
@@ -398,6 +386,7 @@ class Downloader:
                 return False
 
             await client.connect()
+            connected = True  # Fix #5: mark connected only after successful connect()
 
             message = await client.get_messages(entity_id, ids=message_id)
 
@@ -429,7 +418,6 @@ class Downloader:
             file_path = await message.download_media(
                 file=str(folder), progress_callback=self._create_progress_callback()
             )
-
             print()
 
             if file_path:
@@ -441,58 +429,46 @@ class Downloader:
 
         except KeyboardInterrupt:
             click.echo(click.style("\n\n⚠ Download cancelled by user.", fg="yellow"))
-            logger.info("Link download cancelled by user (KeyboardInterrupt)")
             return False
         except FloodWaitError as e:
             click.echo(click.style(f"\n✗ Rate limited by Telegram. Wait {e.seconds} seconds", fg="red"))
-            logger.warning(f"FloodWaitError during link download: {e.seconds} seconds")
             return False
         except Exception as e:
             click.echo(click.style(f"\n✗ Download failed: {e}", fg="red"))
             logger.exception(f"Unexpected error during download from link: {link}")
             return False
         finally:
-            try:
-                await client.disconnect()
-            except Exception as disconnect_error:
-                logger.debug(f"Error disconnecting client: {disconnect_error}")
+            # Fix #5: only disconnect if we actually connected
+            if connected:
+                try:
+                    await client.disconnect()
+                except Exception as disc_err:
+                    logger.debug(f"Error disconnecting client: {disc_err}")
 
     def _create_progress_callback(self) -> Callable:
-        """Create a reusable progress callback for download progress bars."""
+        """Create a progress callback for single-file download progress bars."""
         async def progress_callback(current: int, total: int) -> None:
             percent = (current / total) * 100 if total > 0 else 0
             filled = int(PROGRESS_BAR_LENGTH * current / total) if total > 0 else 0
             bar = PROGRESS_BAR_FILLED_CHAR * filled + PROGRESS_BAR_EMPTY_CHAR * (PROGRESS_BAR_LENGTH - filled)
             print(
                 f"\r  [{bar}] {percent:.1f}% | {format_bytes(current)}/{format_bytes(total)}",
-                end="",
-                flush=True,
+                end="", flush=True,
             )
-
         return progress_callback
 
     def _parse_link(self, link: str):
-        """Parse Telegram message link.
-
-        Bug #8 fixed: strip whitespace so copy-pasted links with leading/
-        trailing spaces are handled correctly instead of silently failing.
-        """
+        """Parse Telegram message link. Strips whitespace before matching."""
         link = link.strip()
 
         # Private channel/group: https://t.me/c/1234567890/123
-        private_pattern = r"https?://t\.me/c/(\d+)/(\d+)"
-        match = re.match(private_pattern, link)
+        match = re.match(r"https?://t\.me/c/(\d+)/(\d+)", link)
         if match:
-            channel_id = int("-100" + match.group(1))
-            message_id = int(match.group(2))
-            return channel_id, message_id
+            return int("-100" + match.group(1)), int(match.group(2))
 
         # Public channel: https://t.me/username/123
-        public_pattern = r"https?://t\.me/([^/]+)/(\d+)"
-        match = re.match(public_pattern, link)
+        match = re.match(r"https?://t\.me/([^/]+)/(\d+)", link)
         if match:
-            username = match.group(1)
-            message_id = int(match.group(2))
-            return username, message_id
+            return match.group(1), int(match.group(2))
 
         return None, None

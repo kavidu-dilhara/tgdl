@@ -1,6 +1,5 @@
-"""Module for listing Telegram channels and groups."""
+"""Module for listing Telegram channels, groups, and bot chats."""
 
-import asyncio
 import logging
 from typing import List, Dict, Any
 import click
@@ -9,24 +8,36 @@ from tgdl.auth import get_authenticated_client
 
 logger = logging.getLogger(__name__)
 
+# Max display width for title column before truncating
+_TITLE_MAX = 40
+
+
+def _truncate(text: str, max_len: int) -> str:
+    """Truncate text to max_len, appending '..' if cut.
+
+    Fix #16 (display): long titles no longer overflow their column and
+    break table alignment.
+    """
+    if len(text) <= max_len:
+        return text
+    return text[:max_len - 2] + '..'
+
 
 async def get_channels() -> List[Dict[str, Any]]:
     """
     Get list of all channels user is member of.
-    
-    Returns:
-        List of dicts with channel info
+
+    Fix #7: use try/finally so client.disconnect() is always called even when
+    an unhandled exception escapes the except block.
     """
     client = get_authenticated_client()
     if not client:
         return []
-    
+
     channels = []
     try:
         await client.connect()
-        
         dialogs = await client.get_dialogs()
-        
         for dialog in dialogs:
             if dialog.is_channel:
                 channels.append({
@@ -34,37 +45,32 @@ async def get_channels() -> List[Dict[str, Any]]:
                     'title': dialog.name,
                     'username': getattr(dialog.entity, 'username', None),
                 })
-        
-        await client.disconnect()
-        
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching channels: {e}", fg='red'))
         logger.exception("Error fetching channels list")
+    finally:
         try:
             await client.disconnect()
-        except Exception as disconnect_error:
-            logger.debug(f"Error disconnecting client: {disconnect_error}")
-    
+        except Exception as disc_err:
+            logger.debug(f"Error disconnecting client: {disc_err}")
+
     return channels
 
 
 async def get_groups() -> List[Dict[str, Any]]:
     """
     Get list of all groups user is member of.
-    
-    Returns:
-        List of dicts with group info
+
+    Fix #8: try/finally for guaranteed disconnect.
     """
     client = get_authenticated_client()
     if not client:
         return []
-    
+
     groups = []
     try:
         await client.connect()
-        
         dialogs = await client.get_dialogs()
-        
         for dialog in dialogs:
             if dialog.is_group:
                 groups.append({
@@ -72,56 +78,48 @@ async def get_groups() -> List[Dict[str, Any]]:
                     'title': dialog.name,
                     'username': getattr(dialog.entity, 'username', None),
                 })
-        
-        await client.disconnect()
-        
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching groups: {e}", fg='red'))
         logger.exception("Error fetching groups list")
+    finally:
         try:
             await client.disconnect()
-        except Exception as disconnect_error:
-            logger.debug(f"Error disconnecting client: {disconnect_error}")
-    
+        except Exception as disc_err:
+            logger.debug(f"Error disconnecting client: {disc_err}")
+
     return groups
 
 
 async def get_bots() -> List[Dict[str, Any]]:
     """
     Get list of all bot chats user has.
-    
-    Returns:
-        List of dicts with bot info
+
+    Fix #9: try/finally for guaranteed disconnect.
     """
     client = get_authenticated_client()
     if not client:
         return []
-    
+
     bots = []
     try:
         await client.connect()
-        
         dialogs = await client.get_dialogs()
-        
         for dialog in dialogs:
-            # Check if it's a user and a bot
             if dialog.is_user and isinstance(dialog.entity, User) and dialog.entity.bot:
                 bots.append({
                     'id': dialog.entity.id,
                     'title': dialog.name,
                     'username': getattr(dialog.entity, 'username', None),
                 })
-        
-        await client.disconnect()
-        
     except Exception as e:
         click.echo(click.style(f"✗ Error fetching bots: {e}", fg='red'))
         logger.exception("Error fetching bots list")
+    finally:
         try:
             await client.disconnect()
-        except Exception as disconnect_error:
-            logger.debug(f"Error disconnecting client: {disconnect_error}")
-    
+        except Exception as disc_err:
+            logger.debug(f"Error disconnecting client: {disc_err}")
+
     return bots
 
 
@@ -130,14 +128,15 @@ def display_channels(channels: List[Dict[str, Any]]) -> None:
     if not channels:
         click.echo("No channels found.")
         return
-    
+
     click.echo(click.style(f"\n📢 Found {len(channels)} channels:\n", fg='cyan', bold=True))
     click.echo(f"{'ID':<15} {'Title':<40} {'Username':<20}")
     click.echo("=" * 75)
-    
+
     for channel in channels:
         username = f"@{channel['username']}" if channel['username'] else "N/A"
-        click.echo(f"{channel['id']:<15} {channel['title']:<40} {username:<20}")
+        title = _truncate(channel['title'], _TITLE_MAX)
+        click.echo(f"{channel['id']:<15} {title:<40} {username:<20}")
 
 
 def display_groups(groups: List[Dict[str, Any]]) -> None:
@@ -145,14 +144,15 @@ def display_groups(groups: List[Dict[str, Any]]) -> None:
     if not groups:
         click.echo("No groups found.")
         return
-    
+
     click.echo(click.style(f"\n👥 Found {len(groups)} groups:\n", fg='cyan', bold=True))
     click.echo(f"{'ID':<15} {'Title':<40} {'Username':<20}")
     click.echo("=" * 75)
-    
+
     for group in groups:
         username = f"@{group['username']}" if group['username'] else "N/A"
-        click.echo(f"{group['id']:<15} {group['title']:<40} {username:<20}")
+        title = _truncate(group['title'], _TITLE_MAX)
+        click.echo(f"{group['id']:<15} {title:<40} {username:<20}")
 
 
 def display_bots(bots: List[Dict[str, Any]]) -> None:
@@ -160,11 +160,12 @@ def display_bots(bots: List[Dict[str, Any]]) -> None:
     if not bots:
         click.echo("No bot chats found.")
         return
-    
+
     click.echo(click.style(f"\n🤖 Found {len(bots)} bot chats:\n", fg='cyan', bold=True))
     click.echo(f"{'ID':<15} {'Bot Name':<40} {'Username':<20}")
     click.echo("=" * 75)
-    
+
     for bot in bots:
         username = f"@{bot['username']}" if bot['username'] else "N/A"
-        click.echo(f"{bot['id']:<15} {bot['title']:<40} {username:<20}")
+        title = _truncate(bot['title'], _TITLE_MAX)
+        click.echo(f"{bot['id']:<15} {title:<40} {username:<20}")

@@ -4,7 +4,7 @@ import os
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from tgdl.crypto import CredentialEncryption
 
 logger = logging.getLogger(__name__)
@@ -17,14 +17,14 @@ class Config:
         """Initialize configuration paths."""
         self.config_dir = Path.home() / ".tgdl"
         self.config_dir.mkdir(exist_ok=True)
-        
+
         self.config_file = self.config_dir / "config.json"
         self.session_file = self.config_dir / "tgdl.session"
         self.progress_file = self.config_dir / "progress.json"
-        
+
         # Initialize encryption handler
         self.crypto = CredentialEncryption(self.config_dir)
-        
+
         self._config = self._load_config()
         self._progress = self._load_progress()
 
@@ -39,9 +39,22 @@ class Config:
         return {}
 
     def _save_config(self):
-        """Save configuration to file."""
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            json.dump(self._config, f, indent=2)
+        """Save configuration to file atomically.
+
+        Fix #17: write to a temp file then os.replace() so a crash mid-write
+        never corrupts config.json.
+        """
+        tmp = self.config_file.with_suffix('.tmp')
+        try:
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(self._config, f, indent=2)
+            os.replace(tmp, self.config_file)
+        except Exception:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise
 
     def _load_progress(self) -> Dict[str, Any]:
         """Load download progress from file."""
@@ -51,12 +64,25 @@ class Config:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
                 logger.warning(f"Failed to load progress file: {e}")
-        return {}  # Bug #2 fixed: duplicate empty-dict return removed
+        return {}
 
     def save_progress(self):
-        """Save download progress to file."""
-        with open(self.progress_file, 'w', encoding='utf-8') as f:
-            json.dump(self._progress, f, indent=2)
+        """Save download progress to file atomically.
+
+        Fix #18: write to a temp file then os.replace() so a crash mid-write
+        never corrupts progress.json.
+        """
+        tmp = self.progress_file.with_suffix('.tmp')
+        try:
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(self._progress, f, indent=2)
+            os.replace(tmp, self.progress_file)
+        except Exception:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get configuration value."""
@@ -76,61 +102,50 @@ class Config:
         self._progress[str(entity_id)] = message_id
         self.save_progress()
 
-    def get_api_credentials(self) -> tuple[Optional[int], Optional[str]]:
-        """Get API credentials from config (with decryption)."""
+    def get_api_credentials(self) -> Tuple[Optional[int], Optional[str]]:
+        """Get API credentials from config (with decryption).
+
+        Fix #4: use typing.Tuple instead of built-in tuple[] (PEP 585) so this
+        works on Python 3.7 and 3.8 as advertised in setup.py.
+        """
         encrypted_id = self.get('api_id_enc')
         encrypted_hash = self.get('api_hash_enc')
-        
+
         if encrypted_id and encrypted_hash:
-            # Try to decrypt encrypted credentials
             api_id, api_hash = self.crypto.decrypt_credentials(encrypted_id, encrypted_hash)
             if api_id and api_hash:
                 return api_id, api_hash
-        
-        # Fallback: check for old plaintext credentials (for migration)
+
+        # Fallback: check for old plaintext credentials (migration path)
         api_id = self.get('api_id')
         api_hash = self.get('api_hash')
-        
+
         if api_id and api_hash:
-            # Migrate to encrypted storage
             try:
                 api_id_int = int(api_id)
                 self.set_api_credentials(api_id_int, api_hash)
-                # Remove old plaintext credentials
-                if 'api_id' in self._config:
-                    del self._config['api_id']
-                if 'api_hash' in self._config:
-                    del self._config['api_hash']
+                # Remove old plaintext credentials and persist
+                self._config.pop('api_id', None)
+                self._config.pop('api_hash', None)
                 self._save_config()
                 return api_id_int, api_hash
             except (ValueError, TypeError) as e:
                 logger.error(f"Failed to migrate credentials: {e}")
-        
+
         return None, None
 
     def set_api_credentials(self, api_id: int, api_hash: str):
         """Save API credentials to config (with encryption)."""
-        # Encrypt credentials
         encrypted_id, encrypted_hash = self.crypto.encrypt_credentials(api_id, api_hash)
-        
-        # Save encrypted credentials
         self.set('api_id_enc', encrypted_id)
         self.set('api_hash_enc', encrypted_hash)
-        
         # Remove old plaintext credentials if they exist
-        if 'api_id' in self._config:
-            del self._config['api_id']
-        if 'api_hash' in self._config:
-            del self._config['api_hash']
+        self._config.pop('api_id', None)
+        self._config.pop('api_hash', None)
         self._save_config()
 
     def is_authenticated(self) -> bool:
-        """Check if user has a plausible (non-empty) session file.
-
-        Bug #14 fixed: previously only checked existence; now also verifies the
-        file has content so a zero-byte or truncated session is treated as
-        unauthenticated rather than silently failing later.
-        """
+        """Check if user has a plausible (non-empty) session file."""
         if not self.session_file.exists():
             return False
         try:
@@ -139,8 +154,7 @@ class Config:
             return False
 
     def get_session_path(self) -> str:
-        """Get session file path."""
-        # Return without extension - Telethon adds .session
+        """Get session file path (without .session extension — Telethon adds it)."""
         return str(self.config_dir / "tgdl")
 
 
