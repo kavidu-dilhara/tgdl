@@ -410,6 +410,7 @@ class Downloader:
             if file_path:
                 successful_ids.append(msg_id)
             elif msg_id in preexisting_downloaded_ids:
+                # Already downloaded before this run; treat as successful for watermark purposes.
                 successful_ids.append(msg_id)
             else:
                 failed_ids.append(msg_id)
@@ -422,7 +423,10 @@ class Downloader:
                 # we store 0 to start from the beginning on the next run.
                 progress_candidate = max(0, oldest_failed_id - 1)
                 self.config.set_progress(str(entity_id), progress_candidate)
-            elif not had_unhandled_failures:
+            elif had_unhandled_failures:
+                # Leave progress unchanged when failures lack an ID to avoid skipping retries.
+                pass
+            else:
                 # No failures: safe to advance to the newest successfully handled message.
                 self.config.set_progress(str(entity_id), max(successful_ids))
 
