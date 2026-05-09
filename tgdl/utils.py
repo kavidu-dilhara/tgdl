@@ -3,7 +3,10 @@
 from functools import wraps
 import asyncio
 import click
+import logging
 from tgdl.auth import check_auth
+
+logger = logging.getLogger(__name__)
 
 
 def format_bytes(bytes_size: int) -> str:
@@ -45,6 +48,7 @@ def require_auth(func):
             try:
                 loop = asyncio.get_running_loop()
             except RuntimeError:
+                logger.warning("No running event loop available for authentication check.")
                 is_authenticated = False
             else:
                 import concurrent.futures

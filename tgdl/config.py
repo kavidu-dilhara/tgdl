@@ -51,8 +51,8 @@ class Config:
             os.replace(tmp, self.config_file)
         except Exception:
             try:
-                tmp.unlink(missing_ok=True)
-            except Exception:
+                tmp.unlink()
+            except FileNotFoundError:
                 pass
             raise
 
@@ -79,8 +79,8 @@ class Config:
             os.replace(tmp, self.progress_file)
         except Exception:
             try:
-                tmp.unlink(missing_ok=True)
-            except Exception:
+                tmp.unlink()
+            except FileNotFoundError:
                 pass
             raise
 
@@ -157,11 +157,13 @@ class Config:
         return str(self.config_dir / "tgdl")
 
 
-# Global config instance — initialized eagerly at import time so concurrent
-# coroutines always see the same object.
-_config = Config()
+# Global config instance — lazily initialized to avoid import-time side effects.
+_config: Optional[Config] = None
 
 
 def get_config() -> Config:
     """Get global config instance."""
+    global _config
+    if _config is None:
+        _config = Config()
     return _config
