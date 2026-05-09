@@ -234,7 +234,7 @@ class Downloader:
                         self._cleanup_partial(dest_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
-                        raise Exception("Download timed out (on re-fetch)") from refetch_timeout
+                        raise asyncio.TimeoutError("Download timed out (on re-fetch)") from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
                         self._cleanup_partial(dest_path)
@@ -337,6 +337,7 @@ class Downloader:
         folder.mkdir(parents=True, exist_ok=True)
 
         downloaded_message_ids = self._get_downloaded_message_ids(folder)
+        preexisting_downloaded_ids = set(downloaded_message_ids)
         if downloaded_message_ids:
             click.echo(click.style(
                 f"Found {len(downloaded_message_ids)} already downloaded files, will skip...",
@@ -406,7 +407,7 @@ class Downloader:
             file_path, msg_id = result
             if file_path:
                 successful_ids.append(msg_id)
-            elif msg_id in downloaded_message_ids:
+            elif msg_id in preexisting_downloaded_ids:
                 successful_ids.append(msg_id)
             else:
                 failed_ids.append(msg_id)
@@ -550,8 +551,10 @@ class Downloader:
                     logger.debug(f"Error disconnecting client: {disc_err}")
 
     @staticmethod
-    def _cleanup_partial(dest_path: Path):
+    def _cleanup_partial(dest_path: Optional[Path]):
         """Remove a partially downloaded file if it exists."""
+        if not dest_path:
+            return
         try:
             if dest_path.exists():
                 dest_path.unlink()
