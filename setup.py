@@ -1,14 +1,20 @@
 """Setup configuration for tgdl package."""
 from setuptools import setup, find_packages
 import pathlib
+import re
 
 # Read the contents of README file
 here = pathlib.Path(__file__).parent.resolve()
 long_description = (here / "README.md").read_text(encoding="utf-8")
 
+# Read version from tgdl/__init__.py (single source of truth)
+_version_file = (here / "tgdl" / "__init__.py").read_text(encoding="utf-8")
+_version_match = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', _version_file, re.M)
+_version = _version_match.group(1) if _version_match else "0.0.0"
+
 setup(
     name="tgdl",
-    version="1.2.2",
+    version=_version,
     author="kavidu-dilhara",
     author_email="contact@kavidudilhara.eu.org",
     description="A high-performance CLI tool for downloading media from Telegram channels, groups, and messages",

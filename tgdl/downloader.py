@@ -6,7 +6,7 @@ import asyncio
 import logging
 import mimetypes
 from pathlib import Path
-from typing import Optional, List, Set, Callable
+from typing import Optional, List, Set, Callable, Tuple, Union
 from enum import Enum
 
 import click
@@ -30,7 +30,9 @@ from tgdl.utils import format_bytes
 logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_CONCURRENT = 5
+MAX_CONCURRENT_LIMIT = 20
 DEFAULT_OUTPUT_DIR = "downloads"
+DOWNLOAD_TIMEOUT = 1800
 PROGRESS_BAR_LENGTH = 30
 PROGRESS_BAR_FILLED_CHAR = "█"
 PROGRESS_BAR_EMPTY_CHAR = "░"
@@ -106,21 +108,15 @@ class Downloader:
         if MediaType.ALL not in self.media_types and media_type not in self.media_types:
             return False
 
-        file_size = message.file.size
+        file_size = message.file.size or 0
 
-        if self.max_size and file_size > self.max_size:
+        if self.max_size and file_size and file_size > self.max_size:
             return False
 
-        if self.min_size and file_size < self.min_size:
+        if self.min_size and file_size and file_size < self.min_size:
             return False
 
         return True
-
-    def _get_downloaded_files(self, folder: Path) -> Set[str]:
-        """Get set of already downloaded filenames."""
-        if not folder.exists():
-            return set()
-        return set(os.listdir(folder))
 
     def _get_downloaded_message_ids(self, folder: Path) -> Set[int]:
         """Get set of message IDs from already downloaded files.
@@ -187,14 +183,25 @@ class Downloader:
                 dest = str(folder / f"{message.id}{ext}")
 
                 try:
-                    file_path = await message.download_media(file=dest)
+                    file_path = await asyncio.wait_for(
+                        message.download_media(file=dest),
+                        timeout=DOWNLOAD_TIMEOUT,
+                    )
+                except asyncio.TimeoutError:
+                    logger.error(f"Download timed out for msg {message.id}")
+                    async with dedup_lock:
+                        downloaded_message_ids.discard(message.id)
+                    raise
                 except FileReferenceExpiredError:
                     logger.info(f"File reference expired for msg {message.id}, re-fetching...")
                     try:
                         fresh_message = await client.get_messages(message.chat_id, ids=message.id)
                         if not fresh_message:
                             raise Exception(f"Message {message.id} no longer exists")
-                        file_path = await fresh_message.download_media(file=dest)
+                        file_path = await asyncio.wait_for(
+                            fresh_message.download_media(file=dest),
+                            timeout=DOWNLOAD_TIMEOUT,
+                        )
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
                         async with dedup_lock:
@@ -352,14 +359,16 @@ class Downloader:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         pbar.close()
 
-        if messages_to_download:
-            max_downloaded_id = max(m.id for m in messages_to_download)
+        successful_ids = []
+        for result in results:
+            if not isinstance(result, Exception) and result[0] is not None:
+                successful_ids.append(result[1])
+
+        if successful_ids:
+            max_downloaded_id = max(successful_ids)
             self.config.set_progress(str(entity_id), max_downloaded_id)
 
-        successful = sum(
-            1 for result in results
-            if not isinstance(result, Exception) and result[0] is not None
-        )
+        successful = len(successful_ids)
 
         click.echo(click.style(f"\n✓ Successfully downloaded {successful} files!", fg="green"))
         click.echo(f"Files saved to: {folder.absolute()}")
@@ -405,19 +414,50 @@ class Downloader:
             folder = Path(self.output_dir) / "single_downloads"
             folder.mkdir(parents=True, exist_ok=True)
 
+            # Dedup: skip if already downloaded
+            downloaded_ids = self._get_downloaded_message_ids(folder)
+            if message_id in downloaded_ids:
+                click.echo(click.style("✓ File already downloaded, skipping.", fg="yellow"))
+                return True
+
             file_name = "unknown"
             file_size = 0
             if message.file:
                 file_name = message.file.name or f"file_{message_id}"
-                file_size = message.file.size
+                file_size = message.file.size or 0
 
             click.echo(f"\nFile: {file_name}")
             click.echo(f"Size: {format_bytes(file_size)}")
             click.echo()
 
-            file_path = await message.download_media(
-                file=str(folder), progress_callback=self._create_progress_callback()
-            )
+            ext = ""
+            if message.file and message.file.name:
+                ext = Path(message.file.name).suffix
+            elif message.file and message.file.mime_type:
+                ext = mimetypes.guess_extension(message.file.mime_type) or ""
+            dest = str(folder / f"{message_id}{ext}")
+
+            try:
+                file_path = await asyncio.wait_for(
+                    message.download_media(
+                        file=dest, progress_callback=self._create_progress_callback()
+                    ),
+                    timeout=DOWNLOAD_TIMEOUT,
+                )
+            except FileReferenceExpiredError:
+                logger.info(f"File reference expired for msg {message_id}, re-fetching...")
+                fresh_message = await client.get_messages(entity_id, ids=message_id)
+                if not fresh_message:
+                    raise Exception(f"Message {message_id} no longer exists")
+                file_path = await asyncio.wait_for(
+                    fresh_message.download_media(
+                        file=dest, progress_callback=self._create_progress_callback()
+                    ),
+                    timeout=DOWNLOAD_TIMEOUT,
+                )
+            except asyncio.TimeoutError:
+                click.echo(click.style("\n✗ Download timed out.", fg="red"))
+                return False
             print()
 
             if file_path:
@@ -457,8 +497,15 @@ class Downloader:
             )
         return progress_callback
 
-    def _parse_link(self, link: str):
-        """Parse Telegram message link. Strips whitespace before matching."""
+    def _parse_link(self, link: str) -> Tuple[Optional[Union[int, str]], Optional[int]]:
+        """Parse Telegram message link.
+
+        Supports:
+          - https://t.me/c/1234567890/123  (private channel/group)
+          - https://t.me/username/123       (public channel)
+
+        Returns (entity_id, message_id) or (None, None) on failure.
+        """
         link = link.strip()
 
         # Private channel/group: https://t.me/c/1234567890/123
@@ -469,6 +516,10 @@ class Downloader:
         # Public channel: https://t.me/username/123
         match = re.match(r"https?://t\.me/([^/]+)/(\d+)", link)
         if match:
-            return match.group(1), int(match.group(2))
+            username = match.group(1)
+            # Reject invite links and other special paths
+            if username in ('+', 'joinchat', 'addstickers', 'addemoji', 'share'):
+                return None, None
+            return username, int(match.group(2))
 
         return None, None

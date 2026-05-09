@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tgdl"
-version = "1.2.2"
+dynamic = ["version"]
 description = "A high-performance CLI tool for downloading media from Telegram"
 readme = "README.md"
 requires-python = ">=3.7"
@@ -23,13 +23,13 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
     "telethon>=1.42.0",
     "click>=8.3.1",
     "tqdm>=4.67.1",
-    "aiofiles>=25.1.0",
     "cryptography>=46.0.3",
 ]
 
@@ -52,6 +52,9 @@ tgdl = "tgdl.cli:main"
 
 [tool.setuptools]
 packages = ["tgdl"]
+
+[tool.setuptools.dynamic]
+version = {attr = "tgdl.__version__"}
 
 [tool.black]
 line-length = 100

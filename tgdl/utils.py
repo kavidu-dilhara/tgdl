@@ -16,22 +16,20 @@ def format_bytes(bytes_size: int) -> str:
     Returns:
         Formatted string (e.g., "10.5 MB")
     """
-    # Use a local variable so the caller's value is never mutated (Bug #11)
-    size = float(bytes_size)
+    if bytes_size is None:
+        return "0.00 B"
+    size = abs(float(bytes_size))
+    prefix = "-" if bytes_size < 0 else ""
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
         if size < 1024.0:
-            return f"{size:.2f} {unit}"
+            return f"{prefix}{size:.2f} {unit}"
         size /= 1024.0
-    return f"{size:.2f} PB"
+    return f"{prefix}{size:.2f} PB"
 
 
 def require_auth(func):
     """
     Decorator to require authentication for CLI commands.
-
-    Fix #20: asyncio.run() raises RuntimeError if a loop is already running
-    (e.g. inside pytest-asyncio or a Jupyter notebook). We detect that case
-    and fall back to scheduling the coroutine on the existing loop instead.
 
     Usage:
         @main.command()
@@ -42,17 +40,15 @@ def require_auth(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Already inside a running loop — schedule and wait
+            is_authenticated = asyncio.run(check_auth())
+        except RuntimeError:
+            try:
+                loop = asyncio.get_running_loop()
                 import concurrent.futures
                 future = asyncio.run_coroutine_threadsafe(check_auth(), loop)
                 is_authenticated = future.result(timeout=30)
-            else:
-                is_authenticated = loop.run_until_complete(check_auth())
-        except RuntimeError:
-            # No current event loop at all — create one via asyncio.run
-            is_authenticated = asyncio.run(check_auth())
+            except RuntimeError:
+                is_authenticated = asyncio.run(check_auth())
 
         if not is_authenticated:
             click.echo(click.style("\n✗ You're not logged in.", fg='red'))
