@@ -43,7 +43,6 @@ setup(
         "telethon>=1.42.0",
         "click>=8.3.1",
         "tqdm>=4.67.1",
-        "aiofiles>=25.1.0",
         "cryptography>=46.0.3",
     ],
     extras_require={
