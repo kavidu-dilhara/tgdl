@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import os
+from typing import Optional
 import click
 from tgdl import __version__
 from tgdl.auth import login_user
@@ -10,6 +11,8 @@ from tgdl.list import get_channels, get_groups, get_bots, display_channels, disp
 from tgdl.downloader import Downloader, MediaType, DEFAULT_MAX_CONCURRENT, MAX_CONCURRENT_LIMIT, DEFAULT_OUTPUT_DIR
 from tgdl.config import get_config
 from tgdl.utils import format_bytes, require_auth
+
+logger = logging.getLogger(__name__)
 
 
 def run_async(coro):
@@ -70,7 +73,8 @@ async def _get_user_info_with_client(client):
     try:
         me = await client.get_me()
         return me
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Could not fetch user info: {type(e).__name__}: {e}")
         return None
 
 
@@ -87,13 +91,31 @@ async def _check_auth_and_get_user():
             return False, None
         me = await _get_user_info_with_client(client)
         return True, me
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Auth check failed: {type(e).__name__}: {e}")
         return False, None
     finally:
         try:
             await client.disconnect()
-        except Exception:
-            pass
+        except Exception as disc_err:
+            logger.debug(f"Error disconnecting client: {disc_err}")
+
+
+def _validate_id_range(min_id, max_id, limit) -> Optional[str]:
+    """Validate --min-id/--max-id/--limit values.
+
+    Fix #6: reject invalid values before they ever reach a Telegram API
+    call. Returns an error message string if invalid, or None if OK.
+    """
+    if min_id is not None and min_id < 1:
+        return "--min-id must be a positive integer (got {})".format(min_id)
+    if max_id is not None and max_id < 1:
+        return "--max-id must be a positive integer (got {})".format(max_id)
+    if limit is not None and limit < 1:
+        return "--limit must be a positive integer (got {})".format(limit)
+    if min_id is not None and max_id is not None and min_id > max_id:
+        return "--min-id cannot be greater than --max-id ({} > {})".format(min_id, max_id)
+    return None
 
 
 def _parse_size(size_str: str):
@@ -103,9 +125,17 @@ def _parse_size(size_str: str):
     '100KB'.endswith('B') no longer matches the bare 'B' entry first and
     silently parses 100 KB as 100 bytes.
 
+    Fix #7: reject non-finite values (NaN, inf, -inf). `float("inf")` and
+    `float("nan")` both parse successfully, but int(nan * mult) raises
+    ValueError while int(inf * mult) raises OverflowError — the previous
+    code only caught ValueError, so a value like "infMB" crashed with an
+    uncaught OverflowError and a raw traceback instead of a clean CLI error.
+
     Returns None on invalid input so callers can detect and abort rather than
     silently disabling the filter.
     """
+    import math
+
     size_str = size_str.upper().strip()
 
     # Fix #1: ordered longest-suffix-first to avoid 'B' swallowing 'KB' etc.
@@ -117,28 +147,41 @@ def _parse_size(size_str: str):
         ('B',  1),
     ]
 
+    def _reject(reason: str):
+        click.echo(click.style(f"\u2717 {reason}: {size_str}", fg='red'))
+        return None
+
     for unit, multiplier in units:
         if size_str.endswith(unit):
             try:
                 number = float(size_str[:-len(unit)])
-                if number < 0:
-                    click.echo(click.style(f"\u2717 Size cannot be negative: {size_str}", fg='red'))
-                    return None
-                return int(number * multiplier)
             except ValueError:
-                pass
+                continue
+            if not math.isfinite(number):
+                return _reject("Size must be a finite number")
+            if number < 0:
+                return _reject("Size cannot be negative")
+            return int(number * multiplier)
 
     # Try plain integer (bytes)
     try:
         value = int(size_str)
-        if value < 0:
-            click.echo(click.style(f"\u2717 Size cannot be negative: {size_str}", fg='red'))
-            return None
-        return value
     except ValueError:
         click.echo(click.style(f"\u2717 Invalid size format: {size_str}", fg='red'))
         click.echo("Use formats like: 100MB, 1.5GB, 500KB")
         return None
+    if value < 0:
+        return _reject("Size cannot be negative")
+    return value
+
+
+def _validate_size_range(min_size_bytes: Optional[int], max_size_bytes: Optional[int]) -> Optional[str]:
+    """Validate the relationship between the optional size filters."""
+    if min_size_bytes is not None and max_size_bytes is not None and min_size_bytes > max_size_bytes:
+        return "--min-size cannot be greater than --max-size ({} > {})".format(
+            format_bytes(min_size_bytes), format_bytes(max_size_bytes)
+        )
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -238,8 +281,15 @@ def logout():
         click.echo(click.style("\n\nLogout cancelled.", fg='yellow'))
     except KeyboardInterrupt:
         click.echo(click.style("\n\nLogout cancelled.", fg='yellow'))
+    except OSError as e:
+        # Fix #14: filesystem-specific errors (permission denied, file in
+        # use, etc.) get a message that points at the actual problem rather
+        # than a generic "Error during logout".
+        click.echo(click.style(f"\n✗ Could not remove local session files: {e}", fg='red'))
+        click.echo("You may need to manually delete files under ~/.tgdl")
     except Exception as e:
         click.echo(click.style(f"\n✗ Error during logout: {e}", fg='red'))
+        logger.debug(f"Unexpected error during logout: {type(e).__name__}: {e}")
 
 
 @main.command()
@@ -256,6 +306,7 @@ def channels():
         click.echo(click.style("\n\n⚠ Cancelled by user.", fg='yellow'))
     except Exception as e:
         click.echo(click.style(f"\n✗ Error: {e}", fg='red'))
+        logger.debug(f"Unexpected error listing channels: {type(e).__name__}: {e}")
 
 
 @main.command()
@@ -272,6 +323,7 @@ def groups():
         click.echo(click.style("\n\n⚠ Cancelled by user.", fg='yellow'))
     except Exception as e:
         click.echo(click.style(f"\n✗ Error: {e}", fg='red'))
+        logger.debug(f"Unexpected error listing groups: {type(e).__name__}: {e}")
 
 
 @main.command()
@@ -288,6 +340,7 @@ def bots():
         click.echo(click.style("\n\n⚠ Cancelled by user.", fg='yellow'))
     except Exception as e:
         click.echo(click.style(f"\n✗ Error: {e}", fg='red'))
+        logger.debug(f"Unexpected error listing bots: {type(e).__name__}: {e}")
 
 
 @main.command()
@@ -329,6 +382,12 @@ def download(channel, group, bot, photos, videos, audio, documents,
         ))
         return
 
+    # Fix #6: validate --min-id/--max-id/--limit before doing anything else.
+    range_error = _validate_id_range(min_id, max_id, limit)
+    if range_error:
+        click.echo(click.style(f"\u2717 {range_error}", fg='red'))
+        return
+
     if channel is None and group is None and bot is None:
         click.echo(click.style("✗ Please specify either --channel, --group, or --bot", fg='red'))
         click.echo("Use 'tgdl channels', 'tgdl groups', or 'tgdl bots' to list available IDs")
@@ -360,22 +419,26 @@ def download(channel, group, bot, photos, videos, audio, documents,
     if not media_types:
         media_types.append(MediaType.ALL)
 
-    # Fix #2: guard against None from _parse_size in download command
-    max_size_bytes = _parse_size(max_size) if max_size else None
-    min_size_bytes = _parse_size(min_size) if min_size else None
-    if (max_size and max_size_bytes is None) or (min_size and min_size_bytes is None):
+    # Parse explicitly when an option was supplied; this preserves valid 0B.
+    max_size_bytes = _parse_size(max_size) if max_size is not None else None
+    min_size_bytes = _parse_size(min_size) if min_size is not None else None
+    if (max_size is not None and max_size_bytes is None) or (min_size is not None and min_size_bytes is None):
         return  # _parse_size already printed the error
+    size_range_error = _validate_size_range(min_size_bytes, max_size_bytes)
+    if size_range_error:
+        click.echo(click.style(f"✗ {size_range_error}", fg='red'))
+        return
 
     click.echo(click.style(f"\n📥 Download Settings", fg='cyan', bold=True))
     click.echo(f"  Entity: {entity_type.capitalize()} {entity_id}")
     click.echo(f"  Media types: {', '.join([mt.value for mt in media_types])}")
-    if min_id or max_id:
+    if min_id is not None or max_id is not None:
         click.echo(f"  Message ID range: {min_id or 'start'} to {max_id or 'latest'}")
-    if max_size_bytes:
+    if max_size_bytes is not None:
         click.echo(f"  Max size: {max_size} ({format_bytes(max_size_bytes)})")
-    if min_size_bytes:
+    if min_size_bytes is not None:
         click.echo(f"  Min size: {min_size} ({format_bytes(min_size_bytes)})")
-    if limit:
+    if limit is not None:
         click.echo(f"  Limit: {limit} files")
     click.echo(f"  Parallel downloads: {concurrent}")
     click.echo(f"  Output: {output}")
@@ -410,6 +473,7 @@ def download(channel, group, bot, photos, videos, audio, documents,
         click.echo(click.style("💡 You can resume by running the same command again.", fg='cyan'))
     except Exception as e:
         click.echo(click.style(f"\n✗ Error during download: {e}", fg='red'))
+        logger.debug(f"Unexpected error during download command: {type(e).__name__}: {e}")
 
 
 @main.command('download-link')
@@ -445,11 +509,15 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
     if not media_types:
         media_types.append(MediaType.ALL)
 
-    # Fix #2: guard against None from _parse_size in download-link command
-    max_size_bytes = _parse_size(max_size) if max_size else None
-    min_size_bytes = _parse_size(min_size) if min_size else None
-    if (max_size and max_size_bytes is None) or (min_size and min_size_bytes is None):
+    # Parse explicitly when an option was supplied; this preserves valid 0B.
+    max_size_bytes = _parse_size(max_size) if max_size is not None else None
+    min_size_bytes = _parse_size(min_size) if min_size is not None else None
+    if (max_size is not None and max_size_bytes is None) or (min_size is not None and min_size_bytes is None):
         return  # _parse_size already printed the error
+    size_range_error = _validate_size_range(min_size_bytes, max_size_bytes)
+    if size_range_error:
+        click.echo(click.style(f"✗ {size_range_error}", fg='red'))
+        return
 
     downloader = Downloader(
         max_concurrent=1,
@@ -461,9 +529,9 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
 
     click.echo(click.style(f"\n📥 Downloading from link", fg='cyan', bold=True))
     click.echo(f"Link: {link}")
-    if max_size_bytes:
+    if max_size_bytes is not None:
         click.echo(f"Max size: {format_bytes(max_size_bytes)}")
-    if min_size_bytes:
+    if min_size_bytes is not None:
         click.echo(f"Min size: {format_bytes(min_size_bytes)}")
     click.echo()
 
@@ -477,6 +545,7 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
         click.echo(click.style("\n\n⚠ Download cancelled by user.", fg='yellow'))
     except Exception as e:
         click.echo(click.style(f"\n✗ Error: {e}", fg='red'))
+        logger.debug(f"Unexpected error during download-link command: {type(e).__name__}: {e}")
 
 
 @main.command()

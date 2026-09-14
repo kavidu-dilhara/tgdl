@@ -5,7 +5,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple
-from tgdl.crypto import CredentialEncryption
+from tgdl.crypto import CredentialEncryption, harden_file_permissions
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,9 @@ class Config:
         """Initialize configuration paths."""
         self.config_dir = Path.home() / ".tgdl"
         self.config_dir.mkdir(exist_ok=True)
+        # Fix #3: the directory itself should not be group/world accessible —
+        # it holds the Telegram session, encryption key, and salt.
+        harden_file_permissions(self.config_dir, 0o700)
 
         self.config_file = self.config_dir / "config.json"
         self.session_file = self.config_dir / "tgdl.session"
@@ -27,6 +30,14 @@ class Config:
 
         self._config = self._load_config()
         self._progress = self._load_progress()
+
+        # Fix #3: harden any of these files that already existed before this
+        # version started enforcing permissions (e.g. upgrades from an older
+        # tgdl release). Newly created files are also hardened at write time
+        # in _save_config/save_progress and in crypto.py.
+        for existing in (self.config_file, self.session_file, self.progress_file):
+            if existing.exists():
+                harden_file_permissions(existing, 0o600)
 
     def _load_config(self) -> Dict[str, Any]:
         """Load configuration from file."""
@@ -48,8 +59,13 @@ class Config:
         try:
             with open(tmp, 'w', encoding='utf-8') as f:
                 json.dump(self._config, f, indent=2)
+            harden_file_permissions(tmp, 0o600)  # Fix #3: harden before the rename is visible
             os.replace(tmp, self.config_file)
         except Exception:
+            # Broad catch is intentional here: this is a cleanup-then-reraise
+            # (remove the temp file, then propagate whatever went wrong —
+            # bad data in json.dump, a full disk, a permission error, etc.)
+            # rather than a handler that swallows the error.
             try:
                 tmp.unlink()
             except FileNotFoundError:
@@ -76,8 +92,10 @@ class Config:
         try:
             with open(tmp, 'w', encoding='utf-8') as f:
                 json.dump(self._progress, f, indent=2)
+            harden_file_permissions(tmp, 0o600)  # Fix #3: harden before the rename is visible
             os.replace(tmp, self.progress_file)
         except Exception:
+            # Broad catch intentional: cleanup-then-reraise (see _save_config).
             try:
                 tmp.unlink()
             except FileNotFoundError:
@@ -107,7 +125,14 @@ class Config:
 
         Fix #4: use typing.Tuple instead of built-in tuple[] (PEP 585) so this
         works on Python 3.7 and 3.8 as advertised in setup.py.
+
+        Fix #4/#5: if encrypted credentials are present but fail to decrypt
+        (corrupted/regenerated .key, tampered config.json, etc.), that is a
+        distinct condition from "never logged in" — set self.credentials_error
+        so callers can surface an accurate message instead of the misleading
+        "Not logged in. Run 'tgdl login' first."
         """
+        self.credentials_error: Optional[str] = None
         encrypted_id = self.get('api_id_enc')
         encrypted_hash = self.get('api_hash_enc')
 
@@ -115,6 +140,12 @@ class Config:
             api_id, api_hash = self.crypto.decrypt_credentials(encrypted_id, encrypted_hash)
             if api_id and api_hash:
                 return api_id, api_hash
+            # Encrypted credentials exist but could not be decrypted.
+            self.credentials_error = (
+                "Stored credentials could not be decrypted (the encryption key may have "
+                "changed or the config file is corrupted). Run 'tgdl login' again."
+            )
+            logger.warning("Encrypted API credentials present but decryption failed.")
 
         # Fallback: check for old plaintext credentials (migration path)
         api_id = self.get('api_id')
@@ -128,9 +159,11 @@ class Config:
                 self._config.pop('api_id', None)
                 self._config.pop('api_hash', None)
                 self._save_config()
+                self.credentials_error = None
                 return api_id_int, api_hash
             except (ValueError, TypeError) as e:
-                logger.error(f"Failed to migrate credentials: {e}")
+                logger.error(f"Failed to migrate credentials: {type(e).__name__}")
+                self.credentials_error = "Stored credentials are invalid. Run 'tgdl login' again."
 
         return None, None
 

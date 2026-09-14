@@ -15,8 +15,47 @@ logger = logging.getLogger(__name__)
 _FERNET_KEY_LENGTH = 44
 
 
+def harden_file_permissions(path: Path, mode: int = 0o600) -> None:
+    """Best-effort chmod hardening.
+
+    Fix #3: restrict access to the config directory and sensitive files on
+    POSIX systems. chmod semantics differ (or don't apply at all) on
+    Windows, so this is skipped there rather than attempted and failed.
+    Any OS-level error here (e.g. exotic filesystems that reject chmod) is
+    swallowed — permission hardening is defense-in-depth, not something
+    that should crash the CLI — and the error text is logged at debug
+    level only so it can never leak a path-adjacent secret.
+
+    Lives here (rather than in config.py, which needs it too) because
+    config.py already imports CredentialEncryption from this module;
+    putting the shared helper in config.py would create a circular import.
+    """
+    if os.name == 'nt':
+        return
+    try:
+        os.chmod(path, mode)
+    except OSError as e:
+        logger.debug(f"Could not set permissions on {path.name}: {e}")
+
+
 class CredentialEncryption:
-    """Handle encryption/decryption of sensitive credentials."""
+    """Handle encryption/decryption of sensitive credentials.
+
+    Threat model note: this encrypts the stored api_id/api_hash at rest using
+    a key derived from machine-specific data (hostname + username) plus a
+    per-install random salt, both stored alongside the encrypted data in
+    ~/.tgdl. This protects against casual disclosure (e.g. the config file
+    being copied to a USB drive, committed to a repo, or read by an
+    unrelated process that doesn't also have access to the rest of ~/.tgdl)
+    and against someone reading config.json in isolation. It does NOT
+    protect against an attacker who already has full read access to the
+    ~/.tgdl directory itself — the key and salt live right next to the data
+    they protect, and the Telegram .session file (which grants live account
+    access) is not encrypted by this module at all. File permissions
+    (0700/0600, see config.py) are the actual security boundary; this
+    encryption layer is a secondary measure against the credentials leaking
+    outside that directory.
+    """
 
     def __init__(self, config_dir: Path):
         """
@@ -46,8 +85,7 @@ class CredentialEncryption:
         try:
             with open(self.salt_file, 'wb') as f:
                 f.write(salt)
-            if os.name != 'nt':
-                os.chmod(self.salt_file, 0o600)
+            harden_file_permissions(self.salt_file, 0o600)
         except Exception as e:
             raise RuntimeError(f"Failed to save encryption salt: {e}")
         return salt
@@ -89,7 +127,7 @@ class CredentialEncryption:
                     try:
                         Fernet(key)  # raises ValueError if malformed
                         return key
-                    except (ValueError, Exception):
+                    except ValueError:
                         pass
                 logger.warning(
                     "Key file is malformed or wrong length; regenerating. "
@@ -107,8 +145,7 @@ class CredentialEncryption:
         try:
             with open(self.key_file, 'wb') as f:
                 f.write(key)
-            if os.name != 'nt':
-                os.chmod(self.key_file, 0o600)
+            harden_file_permissions(self.key_file, 0o600)
         except Exception as e:
             raise RuntimeError(f"Failed to save encryption key: {e}")
 
@@ -163,8 +200,13 @@ class CredentialEncryption:
             cipher = self._get_cipher()
             decrypted = cipher.decrypt(encrypted_data.encode('utf-8'))
             return decrypted.decode('utf-8')
-        except (InvalidToken, Exception) as e:
-            logger.debug(f"Decryption failed: {type(e).__name__}: {e}")
+        except InvalidToken:
+            # Wrong/rotated key or tampered/corrupted ciphertext.
+            logger.debug("Decryption failed: invalid token (wrong key or corrupted data)")
+            return None
+        except (ValueError, TypeError) as e:
+            # Malformed base64/UTF-8 input rather than a cryptographic failure.
+            logger.debug(f"Decryption failed: malformed input ({type(e).__name__})")
             return None
 
     def encrypt_credentials(self, api_id: int, api_hash: str) -> Tuple[str, str]:

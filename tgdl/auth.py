@@ -1,10 +1,13 @@
 """Authentication module for tgdl."""
 
-import asyncio
+import logging
 from telethon import TelegramClient
 from telethon.errors import SessionPasswordNeededError, PhoneCodeInvalidError, ApiIdInvalidError
 from tgdl.config import get_config
+from tgdl.crypto import harden_file_permissions
 import click
+
+logger = logging.getLogger(__name__)
 
 
 async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
@@ -25,6 +28,9 @@ async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
 
     try:
         await client.connect()
+        # Fix #3: Telethon creates the .session sqlite file on connect(), so
+        # this is the earliest point it's guaranteed to exist to harden.
+        harden_file_permissions(config.session_file)
 
         if await client.is_user_authorized():
             me = await client.get_me()
@@ -59,6 +65,7 @@ async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
         me = await client.get_me()
         click.echo(click.style(f"\n✓ Successfully logged in as {me.first_name} (ID: {me.id})", fg='green'))
         config.set_api_credentials(api_id, api_hash)
+        harden_file_permissions(config.session_file)  # Fix #3: re-harden after sign-in
         return True
 
     except ApiIdInvalidError:
@@ -68,16 +75,29 @@ async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
     except (click.Abort, KeyboardInterrupt):
         click.echo(click.style("\n\n⚠ Login cancelled.", fg='yellow'))
         return False
+    except (ConnectionError, OSError) as e:
+        # Fix #5/#13: network-level failures are reported distinctly from
+        # authentication failures so users don't chase a login problem that
+        # was actually a connectivity issue.
+        click.echo(click.style(f"\n✗ Network error while contacting Telegram: {e}", fg='red'))
+        logger.debug(f"Network error during login: {type(e).__name__}: {e}")
+        return False
     except Exception as e:
+        # Telethon raises a wide variety of RPCError subclasses for
+        # API-level failures (invalid phone, flood wait not otherwise
+        # caught, etc). We don't know all of them ahead of time, so this
+        # catch-all reports a generic failure without leaking internals
+        # (the exception message from Telethon errors is already a safe,
+        # user-facing description — never raw credentials).
         click.echo(click.style(f"\n✗ Login failed: {e}", fg='red'))
+        logger.debug(f"Unexpected error during login: {type(e).__name__}: {e}")
         return False
     finally:
         # Fix #10: always disconnect, regardless of which code path exits
         try:
             await client.disconnect()
         except Exception as disc_err:
-            import logging
-            logging.getLogger(__name__).debug(f"Error disconnecting after login: {disc_err}")
+            logger.debug(f"Error disconnecting after login: {disc_err}")
 
 
 def get_authenticated_client():
@@ -91,7 +111,13 @@ def get_authenticated_client():
     api_id, api_hash = config.get_api_credentials()
 
     if not api_id or not api_hash:
-        click.echo(click.style("✗ Not logged in. Run 'tgdl login' first.", fg='red'))
+        # Fix #4/#5/#13: distinguish "credentials exist but are unreadable"
+        # from "never logged in" so the user isn't told to log in again when
+        # the real problem is a corrupted/rotated encryption key.
+        if getattr(config, 'credentials_error', None):
+            click.echo(click.style(f"✗ {config.credentials_error}", fg='red'))
+        else:
+            click.echo(click.style("✗ Not logged in. Run 'tgdl login' first.", fg='red'))
         return None
 
     if not config.is_authenticated():
@@ -108,6 +134,12 @@ async def check_auth() -> bool:
 
     Returns:
         True if authenticated, False otherwise
+
+    Note: this intentionally still returns False (rather than raising) for
+    network/API errors, since callers (the @require_auth decorator) only
+    care about a yes/no gate before running a command. The distinct error
+    message for a genuine network failure is shown later when the command
+    itself tries to connect and fails.
     """
     client = get_authenticated_client()
     if not client:
@@ -117,10 +149,14 @@ async def check_auth() -> bool:
         await client.connect()
         is_auth = await client.is_user_authorized()
         return is_auth
-    except Exception:
+    except (ConnectionError, OSError) as e:
+        logger.debug(f"Network error during auth check: {type(e).__name__}: {e}")
+        return False
+    except Exception as e:
+        logger.debug(f"Unexpected error during auth check: {type(e).__name__}: {e}")
         return False
     finally:
         try:
             await client.disconnect()
-        except Exception:
-            pass
+        except Exception as disc_err:
+            logger.debug(f"Error disconnecting after auth check: {disc_err}")

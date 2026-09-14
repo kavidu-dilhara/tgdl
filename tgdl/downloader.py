@@ -131,10 +131,11 @@ class Downloader:
 
         file_size = message.file.size
 
-        if self.max_size and file_size is not None and file_size > self.max_size:
+        # Explicit None checks are important: 0 bytes is a valid filter value.
+        if self.max_size is not None and file_size is not None and file_size > self.max_size:
             return False
 
-        if self.min_size and (file_size is None or file_size < self.min_size):
+        if self.min_size is not None and (file_size is None or file_size < self.min_size):
             return False
 
         return True
@@ -144,12 +145,21 @@ class Downloader:
 
         Fix #16: exclude symlinks — is_file() returns True for symlinks too,
         which could fool the size check with a large linked file.
+
+        Fix #9: exclude in-progress ".part" files. These are only ever
+        renamed to their final name after a fully successful download (see
+        _download_single / download_from_link), so a leftover .part file
+        always means an incomplete or interrupted download and must never
+        be treated as "already downloaded" — otherwise that message would
+        be silently and permanently skipped despite never completing.
         """
         if not folder.exists():
             return set()
 
         message_ids = set()
         for filename in os.listdir(folder):
+            if filename.endswith('.part'):
+                continue
             file_path = folder / filename
             # Fix #16: skip symlinks explicitly
             if file_path.is_symlink() or not file_path.is_file():
@@ -181,9 +191,23 @@ class Downloader:
         Fix #15: pbar.update() is now called OUTSIDE the dedup_lock so the
         lock is held only for the minimal check-and-add operation, not during
         any I/O.
+
+        Fix #9/#14: downloads now write to a "<dest>.part" temp path and are
+        renamed to the final name only after a successful, complete
+        download. Telethon writes directly to the path it's given with no
+        atomicity guarantee of its own, so without this, a hard interrupt
+        (process kill, power loss, etc. — anything that skips our own
+        exception handlers) could leave a truncated file at the final
+        destination. Since _get_downloaded_message_ids() treats any
+        non-empty file at the final path as "already downloaded", a
+        truncated file would be permanently mistaken for a completed
+        download on the next run. Writing under a .part suffix means a hard
+        interrupt leaves only a .part file behind, which is never picked up
+        by the dedup scan, so the message is correctly retried.
         """
         already_done = False
         dest_path: Optional[Path] = None
+        temp_path: Optional[Path] = None
         try:
             # Atomically check-and-reserve this message ID
             async with dedup_lock:
@@ -203,17 +227,18 @@ class Downloader:
                 elif message.file and message.file.mime_type:
                     ext = _guess_extension(message.file.mime_type)
 
-                dest = str(folder / f"{message.id}{ext}")
-                dest_path = Path(dest)
+                dest_path = folder / f"{message.id}{ext}"
+                temp_path = folder / f"{message.id}{ext}.part"
+                temp_dest = str(temp_path)
 
                 try:
-                    file_path = await asyncio.wait_for(
-                        message.download_media(file=dest),
+                    downloaded_path = await asyncio.wait_for(
+                        message.download_media(file=temp_dest),
                         timeout=DOWNLOAD_TIMEOUT,
                     )
                 except asyncio.TimeoutError:
                     logger.error(f"Download timed out for msg {message.id}")
-                    self._cleanup_partial(dest_path)
+                    self._cleanup_partial(temp_path)
                     async with dedup_lock:
                         downloaded_message_ids.discard(message.id)
                     pbar.update(1)
@@ -225,13 +250,13 @@ class Downloader:
                         fresh_message = await client.get_messages(chat, ids=message.id)
                         if not fresh_message:
                             raise Exception(f"Message {message.id} no longer exists")
-                        file_path = await asyncio.wait_for(
-                            fresh_message.download_media(file=dest),
+                        downloaded_path = await asyncio.wait_for(
+                            fresh_message.download_media(file=temp_dest),
                             timeout=DOWNLOAD_TIMEOUT,
                         )
                     except asyncio.TimeoutError as refetch_timeout:
                         logger.error(f"Download timed out for msg {message.id} (re-fetch)")
-                        self._cleanup_partial(dest_path)
+                        self._cleanup_partial(temp_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
                         raise asyncio.TimeoutError(
@@ -239,25 +264,52 @@ class Downloader:
                         ) from refetch_timeout
                     except Exception as refetch_error:
                         logger.error(f"Failed to re-fetch msg {message.id}: {refetch_error}")
-                        self._cleanup_partial(dest_path)
+                        self._cleanup_partial(temp_path)
                         async with dedup_lock:
                             downloaded_message_ids.discard(message.id)
                         raise refetch_error
+
+                # Fix #9/#14: only now, with a confirmed-complete download in
+                # hand, promote the .part file to its final name. os.replace
+                # is atomic on both POSIX and Windows, so a crash right at
+                # this point either leaves the .part file (retried next run)
+                # or the final file (correctly recognized as done) — never a
+                # half-renamed state.
+                file_path = None
+                if downloaded_path and temp_path.exists():
+                    try:
+                        os.replace(temp_path, dest_path)
+                        file_path = str(dest_path)
+                    except OSError as rename_err:
+                        logger.error(f"Failed to finalize download for msg {message.id}: {rename_err}")
+                        self._cleanup_partial(temp_path)
 
             pbar.update(1)  # Fix #15: outside lock
 
             if file_path:
                 return file_path, message.id
 
-            self._cleanup_partial(dest_path)
+            self._cleanup_partial(temp_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             return None, message.id
 
+        except asyncio.CancelledError:
+            # Fix #8: on cancellation, release this message's dedup
+            # reservation instead of leaving it permanently marked
+            # "downloaded" in memory for the rest of this run. Cancellation
+            # must still propagate (never swallow CancelledError), and we
+            # avoid awaiting the lock here since the event loop may already
+            # be tearing down during cancellation — a direct discard is
+            # safe because it's a single non-blocking set operation.
+            downloaded_message_ids.discard(message.id)
+            if temp_path:
+                self._cleanup_partial(temp_path)
+            raise
         except Exception as e:
             click.echo(f"\n✗ Error downloading message {message.id}: {e}")
-            if dest_path:
-                self._cleanup_partial(dest_path)
+            if temp_path:
+                self._cleanup_partial(temp_path)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             pbar.update(1)  # Fix #15: outside lock
@@ -338,6 +390,12 @@ class Downloader:
         folder = Path(self.output_dir) / f"entity_{entity_id}"
         folder.mkdir(parents=True, exist_ok=True)
 
+        # Fix #9/#14: sweep any .part files left over from a previous run
+        # that was killed hard enough to skip our own cleanup handlers (e.g.
+        # SIGKILL, power loss). Safe to do unconditionally here because no
+        # download for this entity is in progress yet at this point.
+        self._cleanup_stale_partials(folder)
+
         downloaded_message_ids = self._get_downloaded_message_ids(folder)
         preexisting_downloaded_ids = set(downloaded_message_ids)
         if downloaded_message_ids:
@@ -348,10 +406,19 @@ class Downloader:
 
         last_message_id = self.config.get_progress(str(entity_id))
 
-        if min_msg_id is not None:
-            start_id = min_msg_id - 1
+        if min_msg_id is not None or max_msg_id is not None:
+            # Fix #2: a manual range always starts from min_msg_id (or the
+            # very beginning if only --max-id was given) and never from the
+            # automatic resume watermark — the two are intentionally kept
+            # independent so this explicit request cannot corrupt normal
+            # resume behavior.
+            start_id = (min_msg_id - 1) if min_msg_id is not None else 0
             click.echo(f"Fetching messages from entity {entity_id} "
-                       f"(ID range: {min_msg_id} to {max_msg_id or 'latest'})...")
+                       f"(ID range: {min_msg_id or 'start'} to {max_msg_id or 'latest'})...")
+            click.echo(click.style(
+                "  Note: manual ID-range downloads do not affect the normal auto-resume position.",
+                fg="cyan",
+            ))
         else:
             start_id = last_message_id if last_message_id else 0
             click.echo(f"Fetching messages from entity {entity_id}...")
@@ -415,7 +482,18 @@ class Downloader:
             else:
                 failed_ids.append(msg_id)
 
-        if successful_ids:
+        # Fix #2: only normal (non-range) downloads are allowed to move the
+        # automatic resume watermark. A manual --min-id/--max-id run is an
+        # explicit, one-off request for a specific slice of history — letting
+        # it write to the same watermark as normal `tgdl download -c CHANNEL`
+        # runs could rewind or skip the automatic resume position (e.g.
+        # re-running an old range would push the watermark backwards, or a
+        # --max-id run capped below the real watermark would silently move it
+        # back). Manual ranges rely entirely on the on-disk dedup check
+        # (_get_downloaded_message_ids) to avoid duplicate downloads instead.
+        is_manual_range = min_msg_id is not None or max_msg_id is not None
+
+        if successful_ids and not is_manual_range:
             if failed_ids:
                 oldest_failed_id = min(failed_ids)
                 # Keep watermark just before the oldest failure so retries include that failed
@@ -472,10 +550,18 @@ class Downloader:
                 click.echo(click.style("✗ Media doesn't match your filters!", fg="yellow"))
                 return False
 
-            folder = Path(self.output_dir) / "single_downloads"
+            # Message IDs are only unique within a chat. Keep each link
+            # download in a per-entity directory so message 123 in chat A
+            # can never collide with message 123 in chat B. Prefer the
+            # resolved numeric chat_id because public usernames can change.
+            resolved_entity_id = getattr(message, "chat_id", None) or entity_id
+            entity_key = re.sub(r"[^A-Za-z0-9_-]+", "_", str(resolved_entity_id))
+            folder = Path(self.output_dir) / "single_downloads" / f"entity_{entity_key}"
             folder.mkdir(parents=True, exist_ok=True)
+            self._cleanup_stale_partials(folder)  # Fix #9/#14
 
-            # Dedup: skip if already downloaded
+            # Dedup is scoped to this entity directory. Message IDs are not
+            # globally unique across Telegram chats/channels.
             downloaded_ids = self._get_downloaded_message_ids(folder)
             if message_id in downloaded_ids:
                 click.echo(click.style("✓ File already downloaded, skipping.", fg="yellow"))
@@ -496,13 +582,16 @@ class Downloader:
                 ext = Path(message.file.name).suffix
             elif message.file and message.file.mime_type:
                 ext = _guess_extension(message.file.mime_type)
-            dest = str(folder / f"{message_id}{ext}")
+            dest_path = folder / f"{message_id}{ext}"
+            temp_path = folder / f"{message_id}{ext}.part"
+            temp_dest = str(temp_path)
 
-            dest_path = Path(dest)
+            # Fix #9/#14: download to a .part file, rename to the final name
+            # only on confirmed success (see _download_single for rationale).
             try:
-                file_path = await asyncio.wait_for(
+                downloaded_path = await asyncio.wait_for(
                     message.download_media(
-                        file=dest, progress_callback=self._create_progress_callback()
+                        file=temp_dest, progress_callback=self._create_progress_callback()
                     ),
                     timeout=DOWNLOAD_TIMEOUT,
                 )
@@ -510,34 +599,43 @@ class Downloader:
                 logger.info(f"File reference expired for msg {message_id}, re-fetching...")
                 fresh_message = await client.get_messages(entity_id, ids=message_id)
                 if not fresh_message:
-                    self._cleanup_partial(dest_path)
+                    self._cleanup_partial(temp_path)
                     raise Exception(f"Message {message_id} no longer exists")
                 try:
-                    file_path = await asyncio.wait_for(
+                    downloaded_path = await asyncio.wait_for(
                         fresh_message.download_media(
-                            file=dest, progress_callback=self._create_progress_callback()
+                            file=temp_dest, progress_callback=self._create_progress_callback()
                         ),
                         timeout=DOWNLOAD_TIMEOUT,
                     )
                 except asyncio.TimeoutError:
-                    self._cleanup_partial(dest_path)
+                    self._cleanup_partial(temp_path)
                     click.echo(click.style("\n✗ Download timed out (on re-fetch).", fg="red"))
                     return False
-                if not file_path:
-                    self._cleanup_partial(dest_path)
+                if not downloaded_path:
+                    self._cleanup_partial(temp_path)
                     click.echo(click.style("\n✗ Re-fetch download returned no file", fg="red"))
                     return False
             except asyncio.TimeoutError:
-                self._cleanup_partial(dest_path)
+                self._cleanup_partial(temp_path)
                 click.echo(click.style("\n✗ Download timed out.", fg="red"))
                 return False
             print()
+
+            file_path = None
+            if downloaded_path and temp_path.exists():
+                try:
+                    os.replace(temp_path, dest_path)
+                    file_path = str(dest_path)
+                except OSError as rename_err:
+                    logger.error(f"Failed to finalize download for msg {message_id}: {rename_err}")
+                    self._cleanup_partial(temp_path)
 
             if file_path:
                 click.echo(click.style(f"\n✓ Successfully downloaded to: {file_path}", fg="green"))
                 return True
             else:
-                self._cleanup_partial(dest_path)
+                self._cleanup_partial(temp_path)
                 click.echo(click.style("\n✗ Failed to download", fg="red"))
                 return False
 
@@ -570,9 +668,37 @@ class Downloader:
         except OSError as e:
             logger.debug(f"Failed to clean up partial file {dest_path}: {e}")
 
+    @staticmethod
+    def _cleanup_stale_partials(folder: Path) -> None:
+        """Remove any leftover .part files in folder before a new run starts.
+
+        Fix #9/#14: these can only exist if a previous download was
+        interrupted hard enough to bypass our normal exception-handling
+        cleanup (e.g. SIGKILL, crash, power loss). They're always safe to
+        remove at the start of a run since no download is in progress yet.
+        """
+        if not folder.exists():
+            return
+        try:
+            entries = os.listdir(folder)
+        except OSError as e:
+            logger.debug(f"Could not scan {folder} for stale .part files: {e}")
+            return
+        for filename in entries:
+            if filename.endswith('.part'):
+                Downloader._cleanup_partial(folder / filename)
+
     def _create_progress_callback(self) -> Callable:
-        """Create a progress callback for single-file download progress bars."""
-        async def progress_callback(current: int, total: int) -> None:
+        """Create a progress callback for single-file download progress bars.
+
+        Fix #1: this must be a plain synchronous callback. Telethon calls
+        download progress callbacks directly (it does not await them), so an
+        `async def` here would never actually run its body — the coroutine
+        object gets created and silently discarded, producing no progress
+        output and (depending on Python version) an "coroutine was never
+        awaited" warning.
+        """
+        def progress_callback(current: int, total: int) -> None:
             percent = (current / total) * 100 if total > 0 else 0
             filled = int(PROGRESS_BAR_LENGTH * current / total) if total > 0 else 0
             bar = PROGRESS_BAR_FILLED_CHAR * filled + PROGRESS_BAR_EMPTY_CHAR * (PROGRESS_BAR_LENGTH - filled)
@@ -583,31 +709,50 @@ class Downloader:
         return progress_callback
 
     def _parse_link(self, link: str) -> Tuple[Optional[Union[int, str]], Optional[int]]:
-        """Parse Telegram message link.
+        """Parse a Telegram message link.
 
-        Supports:
-          - https://t.me/c/1234567890/123  (private channel/group)
-          - https://t.me/username/123       (public channel)
+        Supports common public/private post URLs on t.me, www.t.me,
+        telegram.me, and www.telegram.me, including query strings/fragments.
 
         Returns (entity_id, message_id) or (None, None) on failure.
         """
-        link = link.strip()
+        from urllib.parse import urlparse
 
-        # Strip query string and trailing slashes before matching
-        link = re.sub(r'[?#].*$', '', link).rstrip('/')
+        raw_link = link.strip()
+        if not raw_link:
+            return None, None
 
-        # Private channel/group: https://t.me/c/1234567890/123
-        match = re.match(r"https?://t\.me/c/(\d+)/(\d+)$", link)
-        if match:
-            return int("-100" + match.group(1)), int(match.group(2))
+        try:
+            parsed = urlparse(raw_link)
+        except ValueError:
+            return None, None
 
-        # Public channel: https://t.me/username/123
-        match = re.match(r"https?://t\.me/([^/]+)/(\d+)$", link)
-        if match:
-            username = match.group(1)
-            # Reject invite links and other special paths
-            if username.startswith('+') or username in ('joinchat', 'addstickers', 'addemoji', 'share'):
+        if parsed.scheme.lower() != "https" or parsed.netloc.lower() not in {
+            "t.me", "www.t.me", "telegram.me", "www.telegram.me"
+        }:
+            return None, None
+
+        parts = [part for part in parsed.path.split("/") if part]
+        if len(parts) == 3 and parts[0].lower() == "c" and parts[1].isdigit() and parts[2].isdigit():
+            return int("-100" + parts[1]), int(parts[2])
+
+        if len(parts) == 3 and parts[0].lower() == "s" and parts[2].isdigit():
+            username = parts[1]
+            if self._is_reserved_link_username(username):
                 return None, None
-            return username, int(match.group(2))
+            return username, int(parts[2])
+
+        if len(parts) == 2 and parts[1].isdigit():
+            username = parts[0]
+            if self._is_reserved_link_username(username):
+                return None, None
+            return username, int(parts[1])
 
         return None, None
+
+    @staticmethod
+    def _is_reserved_link_username(username: str) -> bool:
+        """Return True for Telegram paths that are not public chat usernames."""
+        return username.startswith("+") or username.lower() in {
+            "joinchat", "addstickers", "addemoji", "share", "proxy", "iv", "login"
+        }
