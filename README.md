@@ -343,7 +343,7 @@ Files saved to: downloads/entity_1234567890
 🎉 Download complete! 45 files downloaded.
 ```
 
-## � Advanced Usage
+## Advanced Usage
 
 ### Media Type Filters
 
