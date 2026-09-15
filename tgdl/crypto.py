@@ -87,7 +87,7 @@ class CredentialEncryption:
                 f.write(salt)
             harden_file_permissions(self.salt_file, 0o600)
         except Exception as e:
-            raise RuntimeError(f"Failed to save encryption salt: {e}")
+            raise RuntimeError(f"Failed to save encryption salt: {e}") from e
         return salt
 
     def _generate_key(self) -> bytes:
@@ -147,7 +147,7 @@ class CredentialEncryption:
                 f.write(key)
             harden_file_permissions(self.key_file, 0o600)
         except Exception as e:
-            raise RuntimeError(f"Failed to save encryption key: {e}")
+            raise RuntimeError(f"Failed to save encryption key: {e}") from e
 
         return key
 

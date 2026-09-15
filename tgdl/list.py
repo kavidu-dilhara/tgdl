@@ -4,6 +4,7 @@ import logging
 from typing import List, Dict, Any
 import click
 from telethon.tl.types import User, Channel
+from telethon.utils import get_peer_id
 from tgdl.auth import get_authenticated_client
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ async def get_channels() -> List[Dict[str, Any]]:
         for dialog in dialogs:
             if dialog.is_channel and isinstance(dialog.entity, Channel) and not dialog.entity.megagroup:
                 channels.append({
-                    'id': dialog.entity.id,
+                    'id': get_peer_id(dialog.entity),
                     'title': dialog.name,
                     'username': getattr(dialog.entity, 'username', None),
                 })
@@ -74,7 +75,7 @@ async def get_groups() -> List[Dict[str, Any]]:
         for dialog in dialogs:
             if dialog.is_group:
                 groups.append({
-                    'id': dialog.entity.id,
+                    'id': get_peer_id(dialog.entity),
                     'title': dialog.name,
                     'username': getattr(dialog.entity, 'username', None),
                 })
@@ -107,7 +108,7 @@ async def get_bots() -> List[Dict[str, Any]]:
         for dialog in dialogs:
             if dialog.is_user and isinstance(dialog.entity, User) and dialog.entity.bot:
                 bots.append({
-                    'id': dialog.entity.id,
+                    'id': get_peer_id(dialog.entity),
                     'title': dialog.name,
                     'username': getattr(dialog.entity, 'username', None),
                 })

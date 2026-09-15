@@ -34,6 +34,7 @@ async def login_user(api_id: int, api_hash: str, phone: str) -> bool:
 
         if await client.is_user_authorized():
             me = await client.get_me()
+            config.set_api_credentials(api_id, api_hash)
             click.echo(click.style(f"\n✓ Already logged in as {me.first_name} (ID: {me.id})", fg='green'))
             return True
 

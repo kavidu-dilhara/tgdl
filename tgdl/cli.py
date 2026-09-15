@@ -161,7 +161,10 @@ def _parse_size(size_str: str):
                 return _reject("Size must be a finite number")
             if number < 0:
                 return _reject("Size cannot be negative")
-            return int(number * multiplier)
+            scaled = number * multiplier
+            if not math.isfinite(scaled):
+                return _reject("Size is too large")
+            return int(scaled)
 
     # Try plain integer (bytes)
     try:
@@ -200,12 +203,16 @@ def login():
 
     is_auth, existing_user = run_async(_check_auth_and_get_user())
     if existing_user:
-        click.echo(click.style(
-            f"✓ You're already logged in as {existing_user.first_name} (ID: {existing_user.id})",
-            fg='green'
-        ))
-        click.echo("\nUse 'tgdl logout' to logout and login with a different account.")
-        return
+        config = get_config()
+        stored_id, stored_hash = config.get_api_credentials()
+        if stored_id and stored_hash:
+            click.echo(click.style(
+                f"✓ You're already logged in as {existing_user.first_name} (ID: {existing_user.id})",
+                fg='green'
+            ))
+            click.echo("\nUse 'tgdl logout' to logout and login with a different account.")
+            return
+        click.echo("A valid session exists, but API credentials are missing. Enter them to repair local configuration.")
 
     try:
         api_id = click.prompt('Telegram API ID', type=int)
@@ -236,19 +243,29 @@ def logout():
 
     is_auth, me = run_async(_check_auth_and_get_user())
 
-    if me is None:
-        click.echo(click.style("✗ You're not logged in.", fg='yellow'))
-        return
+    config = get_config()
+    if me is None and not (is_auth or config.is_authenticated()):
+        raise click.ClickException("You're not logged in.")
 
     try:
-        click.echo(f"Currently logged in as: {me.first_name} (ID: {me.id})\n")
+        if me:
+            click.echo(f"Currently logged in as: {me.first_name} (ID: {me.id})\n")
+        else:
+            click.echo("Currently logged in locally; Telegram profile lookup was unavailable.\n")
 
         confirm = click.confirm("Are you sure you want to logout?", default=False)
         if not confirm:
             click.echo(click.style("\nLogout cancelled.", fg='yellow'))
             return
 
-        config = get_config()
+        from tgdl.auth import get_authenticated_client
+        remote_client = get_authenticated_client()
+        if remote_client:
+            try:
+                run_async(remote_client.connect())
+                run_async(remote_client.log_out())
+            finally:
+                run_async(remote_client.disconnect())
         session_file = config.session_file
         config_file = config.config_file
         progress_file = config.progress_file
@@ -377,25 +394,18 @@ def download(channel, group, bot, photos, videos, audio, documents,
       tgdl download -c 1234567890 --concurrent 10
     """
     if concurrent < 1 or concurrent > MAX_CONCURRENT_LIMIT:
-        click.echo(click.style(
-            f"\u2717 --concurrent must be between 1 and {MAX_CONCURRENT_LIMIT}", fg='red'
-        ))
-        return
+        raise click.BadParameter(f"must be between 1 and {MAX_CONCURRENT_LIMIT}", param_hint="--concurrent")
 
     # Fix #6: validate --min-id/--max-id/--limit before doing anything else.
     range_error = _validate_id_range(min_id, max_id, limit)
     if range_error:
-        click.echo(click.style(f"\u2717 {range_error}", fg='red'))
-        return
+        raise click.BadParameter(range_error)
 
     if channel is None and group is None and bot is None:
-        click.echo(click.style("✗ Please specify either --channel, --group, or --bot", fg='red'))
-        click.echo("Use 'tgdl channels', 'tgdl groups', or 'tgdl bots' to list available IDs")
-        return
+        raise click.UsageError("Please specify exactly one of --channel, --group, or --bot")
 
     if sum(value is not None for value in (channel, group, bot)) > 1:
-        click.echo(click.style("✗ Please specify only one: --channel, --group, OR --bot", fg='red'))
-        return
+        raise click.UsageError("Please specify only one of --channel, --group, or --bot")
 
     if channel is not None:
         entity_id = channel
@@ -423,13 +433,12 @@ def download(channel, group, bot, photos, videos, audio, documents,
     max_size_bytes = _parse_size(max_size) if max_size is not None else None
     min_size_bytes = _parse_size(min_size) if min_size is not None else None
     if (max_size is not None and max_size_bytes is None) or (min_size is not None and min_size_bytes is None):
-        return  # _parse_size already printed the error
+        raise click.BadParameter("invalid size")
     size_range_error = _validate_size_range(min_size_bytes, max_size_bytes)
     if size_range_error:
-        click.echo(click.style(f"✗ {size_range_error}", fg='red'))
-        return
+        raise click.BadParameter(size_range_error)
 
-    click.echo(click.style(f"\n📥 Download Settings", fg='cyan', bold=True))
+    click.echo(click.style("\n📥 Download Settings", fg='cyan', bold=True))
     click.echo(f"  Entity: {entity_type.capitalize()} {entity_id}")
     click.echo(f"  Media types: {', '.join([mt.value for mt in media_types])}")
     if min_id is not None or max_id is not None:
@@ -463,17 +472,17 @@ def download(channel, group, bot, photos, videos, audio, documents,
     )
 
     try:
-        count = run_async(downloader.download_from_entity(entity_id, limit, min_id, max_id))
+        count = run_async(downloader.download_from_entity(entity_id, limit, min_id, max_id, entity_type))
         if count > 0:
             click.echo(click.style(f"\n🎉 Download complete! {count} files downloaded.", fg='green', bold=True))
         else:
             click.echo(click.style("\n⚠ No files downloaded.", fg='yellow'))
+            # Empty selections are success; downloader operational failures raise.
     except KeyboardInterrupt:
         click.echo(click.style("\n\n⚠ Download cancelled by user.", fg='yellow'))
         click.echo(click.style("💡 You can resume by running the same command again.", fg='cyan'))
     except Exception as e:
-        click.echo(click.style(f"\n✗ Error during download: {e}", fg='red'))
-        logger.debug(f"Unexpected error during download command: {type(e).__name__}: {e}")
+        raise click.ClickException(str(e)) from e
 
 
 @main.command('download-link')
@@ -513,11 +522,10 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
     max_size_bytes = _parse_size(max_size) if max_size is not None else None
     min_size_bytes = _parse_size(min_size) if min_size is not None else None
     if (max_size is not None and max_size_bytes is None) or (min_size is not None and min_size_bytes is None):
-        return  # _parse_size already printed the error
+        raise click.BadParameter("invalid size")
     size_range_error = _validate_size_range(min_size_bytes, max_size_bytes)
     if size_range_error:
-        click.echo(click.style(f"✗ {size_range_error}", fg='red'))
-        return
+        raise click.BadParameter(size_range_error)
 
     downloader = Downloader(
         max_concurrent=1,
@@ -527,7 +535,7 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
         output_dir=output,
     )
 
-    click.echo(click.style(f"\n📥 Downloading from link", fg='cyan', bold=True))
+    click.echo(click.style("\n📥 Downloading from link", fg='cyan', bold=True))
     click.echo(f"Link: {link}")
     if max_size_bytes is not None:
         click.echo(f"Max size: {format_bytes(max_size_bytes)}")
@@ -540,7 +548,7 @@ def download_link(link, photos, videos, audio, documents, max_size, min_size, ou
         if success:
             click.echo(click.style("\n✓ Download complete!", fg='green', bold=True))
         else:
-            click.echo(click.style("\n✗ Download failed.", fg='red'))
+            raise click.ClickException("Download failed")
     except KeyboardInterrupt:
         click.echo(click.style("\n\n⚠ Download cancelled by user.", fg='yellow'))
     except Exception as e:

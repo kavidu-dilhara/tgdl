@@ -5,6 +5,9 @@ import re
 import asyncio
 import logging
 import mimetypes
+import json
+import tempfile
+import shutil
 from pathlib import Path
 from typing import Optional, List, Set, Callable, Tuple, Union
 from enum import Enum
@@ -12,6 +15,8 @@ from enum import Enum
 import click
 from tqdm.asyncio import tqdm
 from telethon.tl.types import (
+    User,
+    Channel,
     MessageMediaPhoto,
     MessageMediaDocument,
     DocumentAttributeVideo,
@@ -85,6 +90,7 @@ class Downloader:
         self.min_size = min_size
         self.output_dir = output_dir
         self.config = get_config()
+        self._manifest_name = ".tgdl-completed.json"
 
     def _get_media_type(self, message) -> Optional[MediaType]:
         """Determine media type from message."""
@@ -141,39 +147,46 @@ class Downloader:
         return True
 
     def _get_downloaded_message_ids(self, folder: Path) -> Set[int]:
-        """Get set of message IDs from already downloaded files.
-
-        Fix #16: exclude symlinks — is_file() returns True for symlinks too,
-        which could fool the size check with a large linked file.
-
-        Fix #9: exclude in-progress ".part" files. These are only ever
-        renamed to their final name after a fully successful download (see
-        _download_single / download_from_link), so a leftover .part file
-        always means an incomplete or interrupted download and must never
-        be treated as "already downloaded" — otherwise that message would
-        be silently and permanently skipped despite never completing.
-        """
-        if not folder.exists():
+        """Read only TGDL's explicit completion manifest, never arbitrary filenames."""
+        manifest = folder / self._manifest_name
+        if not manifest.exists():
+            return set()
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            if not isinstance(data, list):
+                return set()
+            return {int(value) for value in data if isinstance(value, int) and value > 0}
+        except (OSError, ValueError, TypeError):
+            logger.warning("Ignoring invalid completion manifest: %s", manifest)
             return set()
 
-        message_ids = set()
-        for filename in os.listdir(folder):
-            if filename.endswith('.part'):
-                continue
-            file_path = folder / filename
-            # Fix #16: skip symlinks explicitly
-            if file_path.is_symlink() or not file_path.is_file():
-                continue
+    def _record_completed(self, folder: Path, message_id: int) -> None:
+        lock_path = folder / ".tgdl-manifest.lock"
+        lock_path.touch(exist_ok=True)
+        try:
+            import fcntl
+        except ImportError:  # pragma: no cover - Windows fallback
+            fcntl = None
+        with lock_path.open("r+", encoding="utf-8") as lock:
+            if fcntl:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            completed = self._get_downloaded_message_ids(folder)
+            completed.add(int(message_id))
+            manifest = folder / self._manifest_name
+            fd, temporary = tempfile.mkstemp(prefix=".tgdl-manifest-", dir=folder)
+            temporary_path = Path(temporary)
             try:
-                if file_path.stat().st_size == 0:
-                    continue
-            except OSError:
-                continue
-            match = re.match(r'^(\d+)', filename)
-            if match:
-                message_ids.add(int(match.group(1)))
-
-        return message_ids
+                with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                    json.dump(sorted(completed), stream)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                os.replace(temporary_path, manifest)
+            except Exception:
+                temporary_path.unlink(missing_ok=True)
+                raise
+            finally:
+                if fcntl:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
     async def _download_single(
         self,
@@ -228,7 +241,7 @@ class Downloader:
                     ext = _guess_extension(message.file.mime_type)
 
                 dest_path = folder / f"{message.id}{ext}"
-                temp_path = folder / f"{message.id}{ext}.part"
+                temp_dir, temp_path = self._secure_temp_file(folder, message.id, ext)
                 temp_dest = str(temp_path)
 
                 try:
@@ -287,6 +300,9 @@ class Downloader:
             pbar.update(1)  # Fix #15: outside lock
 
             if file_path:
+                async with dedup_lock:
+                    self._record_completed(folder, message.id)
+                shutil.rmtree(temp_dir, ignore_errors=True)
                 return file_path, message.id
 
             self._cleanup_partial(temp_path)
@@ -305,11 +321,15 @@ class Downloader:
             downloaded_message_ids.discard(message.id)
             if temp_path:
                 self._cleanup_partial(temp_path)
+            if 'temp_dir' in locals():
+                shutil.rmtree(temp_dir, ignore_errors=True)
             raise
         except Exception as e:
             click.echo(f"\n✗ Error downloading message {message.id}: {e}")
             if temp_path:
                 self._cleanup_partial(temp_path)
+            if 'temp_dir' in locals():
+                shutil.rmtree(temp_dir, ignore_errors=True)
             async with dedup_lock:
                 downloaded_message_ids.discard(message.id)
             pbar.update(1)  # Fix #15: outside lock
@@ -321,6 +341,7 @@ class Downloader:
         limit: Optional[int] = None,
         min_msg_id: Optional[int] = None,
         max_msg_id: Optional[int] = None,
+        entity_type: str = "channel",
     ) -> int:
         """Download media from a channel or group."""
         client = get_authenticated_client()
@@ -330,7 +351,7 @@ class Downloader:
         try:
             await client.connect()
             return await self._download_from_entity_inner(
-                client, entity_id, limit, min_msg_id, max_msg_id
+                client, entity_id, limit, min_msg_id, max_msg_id, entity_type
             )
         except KeyboardInterrupt:
             click.echo(click.style("\n\n⚠ Download cancelled by user.", fg="yellow"))
@@ -339,14 +360,23 @@ class Downloader:
             click.echo(click.style(f"✗ Rate limited by Telegram. Wait {e.seconds} seconds", fg="red"))
             return 0
         except Exception as e:
-            click.echo(click.style(f"✗ Download failed: {e}", fg="red"))
-            logger.exception(f"Unexpected error during download from entity {entity_id}")
-            return 0
+            logger.exception("Unexpected error during download from entity %s", entity_id)
+            raise RuntimeError(f"Download failed: {e}") from e
         finally:
             try:
                 await client.disconnect()
             except Exception as disc_err:
                 logger.debug(f"Error disconnecting client: {disc_err}")
+
+    @staticmethod
+    def _matches_entity_type(entity, entity_type: str) -> bool:
+        if entity_type == "bot":
+            return isinstance(entity, User) and bool(getattr(entity, "bot", False))
+        if entity_type == "group":
+            return bool(getattr(entity, "megagroup", False)) or entity.__class__.__name__ == "Chat"
+        if entity_type == "channel":
+            return isinstance(entity, Channel) and not bool(getattr(entity, "megagroup", False))
+        return True
 
     async def _download_from_entity_inner(
         self,
@@ -355,12 +385,18 @@ class Downloader:
         limit: Optional[int],
         min_msg_id: Optional[int],
         max_msg_id: Optional[int],
+        entity_type: str = "channel",
     ) -> int:
         """Core download logic (client already connected)."""
         entity = None
         try:
             async for dialog in client.iter_dialogs():
-                if dialog.entity.id == entity_id:
+                try:
+                    from telethon.utils import get_peer_id
+                    same_id = get_peer_id(dialog.entity) == entity_id
+                except (TypeError, ValueError):
+                    same_id = False
+                if same_id and self._matches_entity_type(dialog.entity, entity_type):
                     entity = dialog.entity
                     break
 
@@ -373,19 +409,14 @@ class Downloader:
                 except FloodWaitError:
                     raise
                 except Exception as e:
-                    click.echo(click.style(f"\n✗ Entity {entity_id} not found", fg="red"))
-                    logger.error(f"Error getting entity {entity_id}: {type(e).__name__}: {e}")
-                    click.echo("\n💡 Make sure:")
-                    click.echo("  1. You have access to this entity")
-                    click.echo("  2. You've interacted with it before")
-                    click.echo("  3. Try: tgdl channels / tgdl groups / tgdl bots")
-                    return 0
+                    raise RuntimeError(f"Entity {entity_id} not found") from e
+                if not self._matches_entity_type(entity, entity_type):
+                    raise RuntimeError(f"Entity {entity_id} is not a {entity_type}")
 
         except FloodWaitError:
             raise
         except Exception as e:
-            click.echo(click.style(f"\n✗ Error accessing entity: {e}", fg="red"))
-            return 0
+            raise RuntimeError(f"Error accessing entity: {e}") from e
 
         folder = Path(self.output_dir) / f"entity_{entity_id}"
         folder.mkdir(parents=True, exist_ok=True)
@@ -397,52 +428,30 @@ class Downloader:
         self._cleanup_stale_partials(folder)
 
         downloaded_message_ids = self._get_downloaded_message_ids(folder)
-        preexisting_downloaded_ids = set(downloaded_message_ids)
         if downloaded_message_ids:
             click.echo(click.style(
                 f"Found {len(downloaded_message_ids)} already downloaded files, will skip...",
                 fg="yellow",
             ))
 
-        last_message_id = self.config.get_progress(str(entity_id))
-
         if min_msg_id is not None or max_msg_id is not None:
-            # Fix #2: a manual range always starts from min_msg_id (or the
-            # very beginning if only --max-id was given) and never from the
-            # automatic resume watermark — the two are intentionally kept
-            # independent so this explicit request cannot corrupt normal
-            # resume behavior.
             start_id = (min_msg_id - 1) if min_msg_id is not None else 0
-            click.echo(f"Fetching messages from entity {entity_id} "
-                       f"(ID range: {min_msg_id or 'start'} to {max_msg_id or 'latest'})...")
-            click.echo(click.style(
-                "  Note: manual ID-range downloads do not affect the normal auto-resume position.",
-                fg="cyan",
-            ))
+            click.echo(f"Fetching messages from entity {entity_id} (manual ID range)")
         else:
-            start_id = last_message_id if last_message_id else 0
-            click.echo(f"Fetching messages from entity {entity_id}...")
+            start_id = 0
+            click.echo(f"Fetching messages from entity {entity_id} (completion manifest resume)")
 
         messages_to_download = []
-
-        # iter_messages yields newest → oldest (descending ID order).
-        # Fix #6: when max_msg_id is given, pass it as offset_id so Telegram
-        # starts fetching from that point instead of the very latest message,
-        # avoiding unnecessary API round-trips to skip messages above the ceiling.
         iter_kwargs = {"min_id": start_id}
         if max_msg_id is not None:
-            # offset_id is exclusive (Telegram returns messages with id < offset_id),
-            # so add 1 to include max_msg_id itself.
             iter_kwargs["offset_id"] = max_msg_id + 1
-
         async for message in client.iter_messages(entity, **iter_kwargs):
-            # Belt-and-suspenders guard in case Telegram returns a stray message
             if max_msg_id is not None and message.id > max_msg_id:
                 continue
-
             if min_msg_id is not None and message.id < min_msg_id:
                 break
-
+            if message.id in downloaded_message_ids:
+                continue
             if self._should_download(message):
                 messages_to_download.append(message)
                 if limit and len(messages_to_download) >= limit:
@@ -458,54 +467,28 @@ class Downloader:
         dedup_lock = asyncio.Lock()
         pbar = tqdm(total=len(messages_to_download), desc="Downloading", unit="file")
 
-        tasks = [
-            self._download_single(msg, folder, semaphore, dedup_lock, pbar, downloaded_message_ids, client, entity_id)
-            for msg in messages_to_download
-        ]
-
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = []
+        # Batch task creation so concurrency bounds both active transfers and queued work.
+        for offset in range(0, len(messages_to_download), self.max_concurrent):
+            batch = messages_to_download[offset:offset + self.max_concurrent]
+            tasks = [
+                self._download_single(msg, folder, semaphore, dedup_lock, pbar,
+                                      downloaded_message_ids, client, entity_id)
+                for msg in batch
+            ]
+            results.extend(await asyncio.gather(*tasks, return_exceptions=True))
         pbar.close()
 
         successful_ids = []
         failed_ids = []
-        had_unhandled_failures = False
         for result in results:
             if isinstance(result, Exception):
-                had_unhandled_failures = True
-                continue
+                raise RuntimeError("One or more downloads failed") from result
             file_path, msg_id = result
             if file_path:
                 successful_ids.append(msg_id)
-            elif msg_id in preexisting_downloaded_ids:
-                # Already downloaded before this run; treat as successful for watermark purposes.
-                successful_ids.append(msg_id)
             else:
                 failed_ids.append(msg_id)
-
-        # Fix #2: only normal (non-range) downloads are allowed to move the
-        # automatic resume watermark. A manual --min-id/--max-id run is an
-        # explicit, one-off request for a specific slice of history — letting
-        # it write to the same watermark as normal `tgdl download -c CHANNEL`
-        # runs could rewind or skip the automatic resume position (e.g.
-        # re-running an old range would push the watermark backwards, or a
-        # --max-id run capped below the real watermark would silently move it
-        # back). Manual ranges rely entirely on the on-disk dedup check
-        # (_get_downloaded_message_ids) to avoid duplicate downloads instead.
-        is_manual_range = min_msg_id is not None or max_msg_id is not None
-
-        if successful_ids and not is_manual_range:
-            if failed_ids:
-                oldest_failed_id = min(failed_ids)
-                # Keep watermark just before the oldest failure so retries include that failed
-                # message (min_id is exclusive, hence -1). Telegram IDs are monotonically
-                # increasing, so any value below the failed ID is safe even if gaps exist.
-                # If the oldest failure is message 1, we store 0 to start from the beginning.
-                progress_candidate = max(0, oldest_failed_id - 1)
-                self.config.set_progress(str(entity_id), progress_candidate)
-            elif not had_unhandled_failures:
-                # No failures: safe to advance to the newest successfully handled message.
-                self.config.set_progress(str(entity_id), max(successful_ids))
-            # When failures lack an ID, leave progress unchanged to avoid skipping retries.
 
         successful = len(successful_ids)
 
@@ -583,7 +566,7 @@ class Downloader:
             elif message.file and message.file.mime_type:
                 ext = _guess_extension(message.file.mime_type)
             dest_path = folder / f"{message_id}{ext}"
-            temp_path = folder / f"{message_id}{ext}.part"
+            temp_dir, temp_path = self._secure_temp_file(folder, message_id, ext)
             temp_dest = str(temp_path)
 
             # Fix #9/#14: download to a .part file, rename to the final name
@@ -600,7 +583,7 @@ class Downloader:
                 fresh_message = await client.get_messages(entity_id, ids=message_id)
                 if not fresh_message:
                     self._cleanup_partial(temp_path)
-                    raise Exception(f"Message {message_id} no longer exists")
+                    raise RuntimeError(f"Message {message_id} no longer exists") from None
                 try:
                     downloaded_path = await asyncio.wait_for(
                         fresh_message.download_media(
@@ -632,6 +615,8 @@ class Downloader:
                     self._cleanup_partial(temp_path)
 
             if file_path:
+                self._record_completed(folder, message_id)
+                shutil.rmtree(temp_dir, ignore_errors=True)
                 click.echo(click.style(f"\n✓ Successfully downloaded to: {file_path}", fg="green"))
                 return True
             else:
@@ -651,11 +636,21 @@ class Downloader:
             return False
         finally:
             # Fix #5: only disconnect if we actually connected
+            if 'temp_dir' in locals():
+                shutil.rmtree(temp_dir, ignore_errors=True)
             if connected:
                 try:
                     await client.disconnect()
                 except Exception as disc_err:
                     logger.debug(f"Error disconnecting client: {disc_err}")
+
+    @staticmethod
+    def _secure_temp_file(folder: Path, message_id: int, ext: str) -> tuple[Path, Path]:
+        temp_dir = Path(tempfile.mkdtemp(prefix=".tgdl-tmp-", dir=folder))
+        os.chmod(temp_dir, 0o700)
+        fd, name = tempfile.mkstemp(prefix=f"{message_id}-", suffix=ext + ".tgdl-part", dir=temp_dir)
+        os.close(fd)
+        return temp_dir, Path(name)
 
     @staticmethod
     def _cleanup_partial(dest_path: Optional[Path]):
@@ -685,8 +680,14 @@ class Downloader:
             logger.debug(f"Could not scan {folder} for stale .part files: {e}")
             return
         for filename in entries:
-            if filename.endswith('.part'):
-                Downloader._cleanup_partial(folder / filename)
+            path = folder / filename
+            # Temporary files use the hyphenated suffix created by
+            # _secure_temp_file: ``<extension>.tgdl-part``.
+            if filename.endswith('.tgdl-part'):
+                Downloader._cleanup_partial(path)
+            elif filename.startswith('.tgdl-tmp-') and path.is_dir() and not path.is_symlink():
+                import shutil
+                shutil.rmtree(path, ignore_errors=True)
 
     def _create_progress_callback(self) -> Callable:
         """Create a progress callback for single-file download progress bars.
